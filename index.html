@@ -269,6 +269,7 @@
 
 <script>
 var state = { medikamente: [], einstellungen: { vorlauf: 7, buendel: 14 }, heute: '', kalender: null, ereignisse: [] };
+var vorlaeufig = false;   // true: es wird der zuletzt gemerkte Stand gezeigt, die Aktualisierung läuft noch; 'offline': Aktualisierung gescheitert
 var offen = {};      // aufgeklappte Karten (Schlüssel)
 var popAn = null;    // Karte, deren Dosierungs-Feld angeheftet ist
 
@@ -423,18 +424,72 @@ function applyEinst() {
   state.einstellungen = { vorlauf: einstOverlay.vorlauf, buendel: einstOverlay.buendel };
 }
 
-function setState(s) {
+function setState(s, ausSnapshot) {
   if (!s) return;
   if (typeof s.__seq === 'number') {
     if (s.__seq < lastAppliedSeq) return; // veraltete Antwort
     lastAppliedSeq = s.__seq;
   }
+  // Der Kalender kommt getrennt und langsam. Fehlt er in der Antwort, bleibt der bisherige Kalenderstand erhalten
+  // und wird im Hintergrund nachgeladen.
+  var kalenderFehlt = !s.kalender || s.kalender.geladen === false;
+  if (kalenderFehlt && state.kalender && state.kalender.geladen !== false) {
+    s.kalender = state.kalender;
+    s.ereignisse = state.ereignisse;
+  }
+  if (!ausSnapshot) { vorlaeufig = false; speichereSnapshot(s); }
   state = s;
   applyDeletions();
   applyOptimistic();
   applyOrdnung();
   applyEinst();
   render();
+  if (kalenderFehlt && !ausSnapshot) ladeKalender();
+}
+
+/* ---- Letzten Stand merken: die App zeigt sofort etwas, während der Server noch lädt ----
+   Gespeichert wird im Browser dieses Geräts, wie auch URL und Schlüssel. */
+var SNAP_KEY = 'med_snapshot';
+var snapTimer = null;
+function speichereSnapshot(s) {
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(function () {
+    try {
+      var kopie = JSON.parse(JSON.stringify(s));
+      delete kopie.hinweis; delete kopie.__seq;
+      localStorage.setItem(SNAP_KEY, JSON.stringify({ ts: Date.now(), s: kopie }));
+    } catch (e) { /* voll oder nicht erlaubt: egal */ }
+  }, 400);
+}
+function ladeSnapshot() {
+  try {
+    var j = JSON.parse(localStorage.getItem(SNAP_KEY));
+    return j && j.s && j.s.medikamente ? j : null;
+  } catch (e) { return null; }
+}
+function lokalHeute() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* ---- Google Kalender im Hintergrund ---- */
+var kalenderLaedt = false;
+function uebernimmKalender(k) {
+  if (!k || !k.kalender) return;
+  state.kalender = k.kalender;
+  state.ereignisse = k.ereignisse || [];
+  letzteKalender = '';
+  renderKalender();
+  renderEinstellungen();
+  speichereSnapshot(state);
+}
+function ladeKalender() {
+  if (kalenderLaedt) return Promise.resolve();
+  kalenderLaedt = true;
+  return rawCall('kalenderLesen').then(function (k) {
+    kalenderLaedt = false;
+    uebernimmKalender(k);
+  }).catch(function () { kalenderLaedt = false; });
 }
 
 // Nach einem fehlgeschlagenen Aufruf den echten Stand neu holen
@@ -449,10 +504,21 @@ function laden(versuche) {
     planeAktualisierung();
   }).catch(function (e) {
     if (n > 0 && !/Zugangsschl|Zugang einrichten/.test(e.message)) { setTimeout(function () { laden(n - 1); }, 900); return; }
-    $('liste').textContent = 'Daten konnten nicht geladen werden.';
+    if (vorlaeufig) { vorlaeufig = 'offline'; renderKopf(); } else $('liste').textContent = 'Daten konnten nicht geladen werden.';
     fehler(e);
     if (/Zugangsschl/.test(e.message)) zeigeZugang();
   });
+}
+
+// Start: zuerst den zuletzt gemerkten Stand zeigen (sofort), dann live nachladen
+function starte() {
+  var snap = ladeSnapshot();
+  if (snap) {
+    snap.s.heute = lokalHeute();
+    vorlaeufig = true;
+    setState(snap.s, true);
+  }
+  laden();
 }
 
 /* ---- Symbole ---- */
@@ -590,21 +656,30 @@ function kalenderMonat(delta) {
   renderKalender();
 }
 
-// Einträge pro Tag: Termine/Kalendereinträge (Kreis) und fällige Aufgaben (Quadrat)
+// Einträge pro Tag: Termine/Kalendereinträge (Kreis) und fällige Aufgaben (Quadrat).
+// Eigene Termine aus der App erscheinen sofort. Sobald der Google Kalender geladen ist, gilt für Termine mit
+// Kalendereintrag dessen Stand (z. B. wenn jemand die Uhrzeit dort geändert hat); alle anderen Einträge des Kalenders kommen dazu.
 function tagesEintraege() {
   var map = {};
   function add(datum, e) { (map[datum] = map[datum] || []).push(e); }
-  var kalVerbunden = state.kalender && state.kalender.verbunden;
-  if (kalVerbunden) {
+  var kal = state.kalender;
+  var kalenderDa = !!(kal && kal.verbunden && kal.geladen !== false);
+  var eigeneIds = {};
+  state.medikamente.forEach(function (m) { if (m.kalenderId) eigeneIds[m.kalenderId] = true; });
+  var imKalender = {};
+  (state.ereignisse || []).forEach(function (ev) { imKalender[ev.id] = true; });
+
+  if (kalenderDa) {
     (state.ereignisse || []).forEach(function (ev) {
       add(ev.datum, { art: 'termin', titel: ev.titel, von: ev.von, bis: ev.bis, ort: ev.ort, quelle: 'Google Kalender' });
     });
-  } else {
-    // Ohne Kalender-Verbindung die Termine aus der App zeigen
-    state.medikamente.forEach(function (m) {
-      if (artVon(m) === 'termin' && m.aktiv && m.frist) add(m.frist, { art: 'termin', titel: m.name, von: m.von, bis: m.bis, ort: m.ort, quelle: 'App' });
-    });
   }
+  state.medikamente.forEach(function (m) {
+    if (artVon(m) !== 'termin' || !m.aktiv || !m.frist) return;
+    // Mit Kalendereintrag und geladenem Kalender: der Kalender zeigt ihn schon
+    if (kalenderDa && m.kalenderId && imKalender[m.kalenderId]) return;
+    add(m.frist, { art: 'termin', titel: m.name, von: m.von, bis: m.bis, ort: m.ort, quelle: m.kalenderId ? 'Google Kalender' : 'App' });
+  });
   state.medikamente.forEach(function (m) {
     if (artVon(m) === 'aufgabe' && m.aktiv && m.frist) add(m.frist, { art: 'aufgabe', titel: m.name, von: '', bis: '', ort: '', quelle: 'Aufgabe' });
   });
@@ -841,12 +916,15 @@ function renderEinstellungen() {
   $('vorlaufWert').textContent = e.vorlauf;
   $('buendelWert').textContent = e.buendel;
   var k = state.kalender;
-  $('kalName').textContent = k ? (k.name || 'Kalender') : 'Kalender';
-  $('kalStatus').textContent = k ? (k.verbunden ? 'Verbunden · abgeglichen um ' + k.um + ' Uhr' : k.status) : '';
-  $('kalPunkt').style.background = k && k.verbunden ? '#1d6b3f' : '#a1173f';
+  var laedt = !k || k.geladen === false;
+  $('kalName').textContent = k && k.name ? k.name : 'Kalender';
+  $('kalStatus').textContent = laedt ? 'Wird abgeglichen …' : (k.verbunden ? 'Verbunden · abgeglichen um ' + k.um + ' Uhr' : k.status);
+  $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 function renderKopf() {
-  if (state.heute) $('heuteText').textContent = tagLang(state.heute);
+  if (!state.heute) return;
+  $('heuteText').textContent = tagLang(state.heute) +
+    (vorlaeufig === true ? ' · wird aktualisiert …' : vorlaeufig === 'offline' ? ' · nicht aktualisiert' : '');
 }
 var letzteGruppen = '';
 function renderGruppen() {
@@ -1232,10 +1310,15 @@ function einzelmail(key) {
 
 function kalenderAbgleich() {
   meldung('Kalender wird abgeglichen …');
-  call('kalender').then(function (s) {
-    setState(s);
-    meldung(s && s.kalender && s.kalender.verbunden ? 'Kalender abgeglichen' : 'Kalender nicht erreichbar', !(s && s.kalender && s.kalender.verbunden));
-  }).catch(fehler);
+  kalenderLaedt = true;
+  state.kalender = Object.assign({}, state.kalender || {}, { geladen: false });
+  renderEinstellungen();
+  rawCall('kalender').then(function (k) {
+    kalenderLaedt = false;
+    uebernimmKalender(k);
+    var ok = k && k.kalender && k.kalender.verbunden;
+    meldung(ok ? 'Kalender abgeglichen' : 'Kalender nicht erreichbar', !ok);
+  }).catch(function (e) { kalenderLaedt = false; fehler(e); });
 }
 
 var einstTimer = null;
@@ -1329,7 +1412,7 @@ document.addEventListener('visibilitychange', function () {
 });
 window.addEventListener('focus', sofortAktualisieren);
 
-if (zugang().url && zugang().key) { laden(); } else { zeigeZugang(); }
+if (zugang().url && zugang().key) { starte(); } else { zeigeZugang(); }
 </script>
 </body>
 </html>
