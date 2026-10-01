@@ -19,12 +19,17 @@
   .karte.rot { border-left-color: #b3261e; }
   .karte.orange { border-left-color: #e08a00; }
   .karte.gruen { border-left-color: #2e7d32; }
-  .kopf { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
-    background: none; color: inherit; border: 0; border-radius: 0; padding: 12px 12px 8px; min-height: 44px; }
+  .reihe { display: flex; align-items: stretch; }
+  .griff { flex: none; width: 36px; min-height: 44px; padding: 0; margin: 0; border: 0; border-radius: 10px 0 0 0;
+    background: none; color: #5f6368; font-size: 18px; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
+  .griff:active { cursor: grabbing; }
+  .karte.dragging { opacity: .7; box-shadow: 0 2px 10px rgba(0,0,0,.2); z-index: 5; }
+  .kopf { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
+    background: none; color: inherit; border: 0; border-radius: 0; padding: 12px 12px 8px 0; min-height: 44px; }
   .inaktiv .kopf { opacity: .55; }
   .name { display: block; font-weight: 600; font-size: 16px; }
   .frist { display: block; font-size: 14px; margin-top: 2px; }
-  .zeile2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px; }
+  .zeile2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px 36px; }
   .zeile2 .neu { margin-left: auto; }
   .chipwrap { position: relative; display: inline-block; }
   .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 10px; min-height: 36px;
@@ -35,7 +40,7 @@
   .pop .pl { font-size: 12px; color: #c9ccd1; margin-bottom: 2px; }
   .chipwrap.an .pop { display: block; }
   @media (hover: hover) { .chipwrap:hover .pop { display: block; } }
-  .detail { padding: 0 12px 12px; border-top: 1px solid #eceef1; }
+  .detail { padding: 0 12px 12px 36px; border-top: 1px solid #eceef1; }
   .wert { margin-top: 10px; }
   .wert .l { font-size: 12px; color: #5f6368; }
   .wert .v { font-size: 14px; margin-top: 1px; white-space: pre-wrap; }
@@ -130,12 +135,14 @@ function esc(s) {
 }
 function $(id) { return document.getElementById(id); }
 
-function meldung(text, fehler) {
+var toastTimer = null;
+function meldung(text, istFehler) {
   var t = $('toast');
   t.textContent = text;
-  t.className = fehler ? 'fehler' : '';
+  t.className = istFehler ? 'fehler' : '';
   t.style.display = 'block';
-  setTimeout(function () { t.style.display = 'none'; }, fehler ? 6000 : 2500);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.style.display = 'none'; }, istFehler ? 6000 : 2500);
 }
 function fehler(e) { meldung(e && e.message ? e.message : String(e), true); }
 
@@ -164,16 +171,26 @@ function speichereZugang() {
   laden();
 }
 
-/* ---- API-Aufruf ---- */
-function api(aktion, daten) {
+/* ---- Server-Aufrufe ----
+   Jeder Aufruf bekommt eine fortlaufende Nummer. Der Server garantiert nicht, dass Antworten in der Reihenfolge
+   der Aufrufe ankommen. setState() verwirft deshalb Antworten, die älter sind als der zuletzt übernommene Stand. */
+var callSeq = 0;
+var lastAppliedSeq = 0;
+var pendingMutations = 0;     // laufende bzw. wartende schreibende Aufrufe
+var lastLocalAction = Date.now();
+
+function rawCall(aktion, daten) {
   var z = zugang();
   if (!z.url || !z.key) { zeigeZugang(); return Promise.reject(new Error('Bitte zuerst den Zugang einrichten.')); }
-  // text/plain (Standard bei String-Body) vermeidet einen CORS-Preflight, den Apps Script nicht beantwortet
+  var seq = ++callSeq;
+  // Bewusst KEIN Content-Type-Header (Standard text/plain): mit application/json würde der Browser einen
+  // CORS-Preflight schicken, den Apps Script nicht beantwortet.
   return fetch(z.url, { method: 'POST', body: JSON.stringify({ key: z.key, aktion: aktion, daten: daten || {} }) })
     .then(function (r) { return r.json(); })
     .then(function (j) {
       if (!j.ok) throw new Error(j.fehler || 'Unbekannter Fehler');
-      return j.daten;
+      if (j.state && typeof j.state === 'object') j.state.__seq = seq;
+      return j.state;
     })
     .catch(function (e) {
       if (e instanceof TypeError) throw new Error('Keine Verbindung zum Server. URL und Bereitstellung prüfen.');
@@ -181,16 +198,113 @@ function api(aktion, daten) {
     });
 }
 
-function laden() {
-  api('lade').then(function (d) {
-    state = d;
-    $('vorlauf').value = d.einstellungen.vorlauf;
-    $('buendel').value = d.einstellungen.buendel;
-    var gr = {};
-    d.medikamente.forEach(function (m) { if (m.gruppe) gr[m.gruppe] = true; });
-    $('gruppen').innerHTML = Object.keys(gr).map(function (g) { return '<option value="' + esc(g) + '"></option>'; }).join('');
-    render();
+// Schreibende Aufrufe laufen strikt nacheinander, damit der Server die Änderungen in genau der Reihenfolge
+// sieht, in der geklickt wurde. Lesende Aufrufe ('lade') laufen sofort und werden nicht eingereiht.
+var mutationQueue = Promise.resolve();
+function call(aktion, daten) {
+  if (aktion === 'lade') return rawCall(aktion, daten);
+  pendingMutations++;
+  lastLocalAction = Date.now();
+  planeAktualisierung();
+
+  var settled = false;
+  var done = function () {
+    if (settled) return;
+    settled = true;
+    pendingMutations = Math.max(0, pendingMutations - 1);
+  };
+  var result = mutationQueue.then(function () { return rawCall(aktion, daten); });
+  result.then(done, done);
+  // Kette weiterlaufen lassen, auch wenn ein Aufruf scheitert oder hängt
+  mutationQueue = new Promise(function (weiter) {
+    var fertig = false;
+    var einmal = function () { if (!fertig) { fertig = true; weiter(); } };
+    result.then(einmal, einmal);
+    setTimeout(function () { done(); einmal(); }, 20000);
+  });
+  return result;
+}
+
+/* ---- Eigene, noch unbestätigte Änderungen ----
+   Jede Antwort enthält den kompletten Stand zum Zeitpunkt ihres Aufrufs. Eine frühere Antwort kennt spätere eigene
+   Änderungen noch nicht und würde sie kurz zurücksetzen. Deshalb werden eigene Änderungen nach jeder Antwort wieder
+   obenauf gelegt und erst entfernt, wenn ihre eigene Antwort da ist. */
+var optimistic = {};      // id -> Feldänderungen
+var optimisticStamp = {}; // id -> laufende Nummer der letzten Änderung
+var optimisticNeu = {};   // id -> true, solange der Eintrag nur lokal existiert
+var optimisticCounter = 0;
+var geloescht = {};       // id -> true
+var ordnungOverlay = null;   // { ids: [...], stamp }
+var einstOverlay = null;     // { vorlauf, buendel, stamp }
+
+function markOptimistic(id, patch, istNeu) {
+  var cur = optimistic[id] || {};
+  for (var k in patch) { if (patch.hasOwnProperty(k)) cur[k] = patch[k]; }
+  optimistic[id] = cur;
+  if (istNeu) optimisticNeu[id] = true;
+  optimisticStamp[id] = ++optimisticCounter;
+  return optimisticStamp[id];
+}
+function clearOptimistic(id, stamp) {
+  if (optimisticStamp[id] === stamp) {
+    delete optimistic[id]; delete optimisticStamp[id]; delete optimisticNeu[id];
+  }
+}
+function applyOptimistic() {
+  Object.keys(optimistic).forEach(function (id) {
+    var patch = optimistic[id];
+    var m = state.medikamente.filter(function (x) { return x.id === id; })[0];
+    if (!m) {
+      if (!optimisticNeu[id]) return;
+      m = { id: id };
+      state.medikamente.push(m);
+    }
+    for (var k in patch) { if (patch.hasOwnProperty(k)) m[k] = patch[k]; }
+  });
+}
+function applyDeletions() {
+  if (Object.keys(geloescht).length) {
+    state.medikamente = state.medikamente.filter(function (m) { return !geloescht[m.id]; });
+  }
+}
+function applyOrdnung() {
+  if (!ordnungOverlay) return;
+  var pos = {};
+  ordnungOverlay.ids.forEach(function (id, i) { pos[id] = i + 1; });
+  var rest = ordnungOverlay.ids.length;
+  state.medikamente.forEach(function (m) { m.reihenfolge = pos[m.id] ? pos[m.id] : ++rest; });
+}
+function applyEinst() {
+  if (!einstOverlay) return;
+  state.einstellungen = { vorlauf: einstOverlay.vorlauf, buendel: einstOverlay.buendel };
+}
+
+function setState(s) {
+  if (!s) return;
+  if (typeof s.__seq === 'number') {
+    if (s.__seq < lastAppliedSeq) return; // veraltete Antwort
+    lastAppliedSeq = s.__seq;
+  }
+  state = s;
+  applyDeletions();
+  applyOptimistic();
+  applyOrdnung();
+  applyEinst();
+  render();
+}
+
+// Nach einem fehlgeschlagenen Aufruf den echten Stand neu holen
+function neuLaden() {
+  call('lade').then(setState).catch(function () {});
+}
+
+function laden(versuche) {
+  var n = versuche === undefined ? 2 : versuche;
+  call('lade').then(function (s) {
+    setState(s);
+    planeAktualisierung();
   }).catch(function (e) {
+    if (n > 0 && !/Zugangsschl|Zugang einrichten/.test(e.message)) { setTimeout(function () { laden(n - 1); }, 900); return; }
     $('liste').textContent = 'Daten konnten nicht geladen werden.';
     fehler(e);
     if (/Zugangsschl/.test(e.message)) zeigeZugang();
@@ -242,6 +356,7 @@ function statusKlasse(u) {
 
 /* ---- Kalender ---- */
 var kalender = { jahr: null, monat: null };
+var letzteKalender = '';
 var MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 var FARBEN = {
   rot: ['#e8a09b', '#4a0e0b'],
@@ -337,7 +452,10 @@ function renderKalender() {
   var legende = '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#5f6368">' +
     '<span style="display:inline-block;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:#fff;border:2px solid #3d2800"></span>' +
     'Erinnerungstag · Balkenende = Fristende</div>';
-  box.innerHTML = kopf + '<div style="display:flex">' + tage + '</div><div style="border-bottom:1px solid #e3e6ea">' + zeilen + '</div>' + legende;
+  var html = kopf + '<div style="display:flex">' + tage + '</div><div style="border-bottom:1px solid #e3e6ea">' + zeilen + '</div>' + legende;
+  if (html === letzteKalender) return;
+  letzteKalender = html;
+  box.innerHTML = html;
 }
 
 /* ---- Liste ---- */
@@ -353,57 +471,99 @@ function mitgliedDetails(m) {
   return (m.text ? wert('Mail-Text', m.text) : '') + (m.foto ? wert('Foto', 'wird angehängt') : '') + (m.notiz ? wert('Notiz', m.notiz) : '');
 }
 
+var dragAktiv = false;       // während des Ziehens und kurz nach einer Tastatur-Verschiebung kein Neuaufbau
+var tastaturTimer = null;
+var renderAusstehend = false;
+
 function render() {
+  if (dragAktiv || tastaturTimer) { renderAusstehend = true; return; }
+  renderAusstehend = false;
   renderKalender();
   renderListe();
+  renderEinstellungen();
+  renderGruppen();
 }
 
-function renderListe() {
-  var liste = einheiten().sort(function (x, y) {
-    if (!x.frist && !y.frist) return x.name.localeCompare(y.name);
-    if (!x.frist) return 1;
-    if (!y.frist) return -1;
-    return x.frist < y.frist ? -1 : x.frist > y.frist ? 1 : 0;
+// Reihenfolge der Karten: die der Einheit mit der kleinsten Reihenfolge ihrer Mitglieder
+function sortierteEinheiten() {
+  var liste = einheiten();
+  liste.forEach(function (u) {
+    u.mitglieder.sort(function (a, b) { return (a.reihenfolge || 0) - (b.reihenfolge || 0); });
+    u.reihe = Math.min.apply(null, u.mitglieder.map(function (m) { return m.reihenfolge || 0; }));
   });
-  if (liste.length === 0) { $('liste').innerHTML = '<p>Noch keine Einträge. Oben rechts auf "+ Neu".</p>'; return; }
-  $('liste').innerHTML = liste.map(function (u) {
-    var d = tageBis(u.frist), text = 'keine Frist hinterlegt';
-    if (d !== null) {
-      text = 'Frist ' + datumDe(u.frist) + ' · ' + (d < 0 ? 'seit ' + (-d) + ' Tagen abgelaufen' : d === 0 ? 'heute' : 'in ' + d + ' Tagen');
-    }
-    var auf = !!offen[u.key], k = esc(u.key);
-    var chip = '';
-    if (u.dosis) {
-      chip = '<span class="chipwrap' + (popAn === u.key ? ' an' : '') + '">' +
-        '<button class="chip" data-a="pop" data-k="' + k + '" aria-expanded="' + (popAn === u.key) + '">' + INFO_SVG + 'Dosierung</button>' +
-        '<div class="pop"><div class="pl">Dosierung</div>' + esc(u.dosis) + '</div></span>';
-    }
-    var details = '';
-    if (auf) {
-      if (!u.gruppe) {
-        var m = u.mitglieder[0];
-        details = mitgliedDetails(m) +
-          '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' +
-          '<button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>';
-      } else {
-        details = '<div class="aktionen"><button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>' +
-          u.mitglieder.map(function (m) {
-            return '<div class="mitglied"><div class="mname">' + esc(m.name) + (m.aktiv ? '' : ' (inaktiv)') + '</div>' + mitgliedDetails(m) +
-              '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button></div></div>';
-          }).join('');
+  return liste.sort(function (x, y) { return x.reihe - y.reihe; });
+}
+
+var letzteListe = '';
+function renderListe() {
+  var liste = sortierteEinheiten();
+  var html;
+  if (liste.length === 0) {
+    html = '<p>Noch keine Einträge. Oben rechts auf "+ Neu".</p>';
+  } else {
+    html = liste.map(function (u) {
+      var d = tageBis(u.frist), text = 'keine Frist hinterlegt';
+      if (d !== null) {
+        text = 'Frist ' + datumDe(u.frist) + ' · ' + (d < 0 ? 'seit ' + (-d) + ' Tagen abgelaufen' : d === 0 ? 'heute' : 'in ' + d + ' Tagen');
       }
-    }
-    return '<div class="karte ' + statusKlasse(u) + (u.aktiv ? '' : ' inaktiv') + '">' +
-      '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
-        '<span><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span><span class="frist">' + esc(text) + '</span></span>' + chevron(auf) + '</button>' +
-      '<div class="zeile2">' + chip + '<button class="neu" data-a="lieferung" data-k="' + k + '">Neue Lieferung erhalten</button></div>' +
-      (auf ? '<div class="detail">' + details + '</div>' : '') +
-    '</div>';
-  }).join('');
+      var auf = !!offen[u.key], k = esc(u.key);
+      var chip = '';
+      if (u.dosis) {
+        chip = '<span class="chipwrap' + (popAn === u.key ? ' an' : '') + '">' +
+          '<button class="chip" data-a="pop" data-k="' + k + '" aria-expanded="' + (popAn === u.key) + '">' + INFO_SVG + 'Dosierung</button>' +
+          '<div class="pop"><div class="pl">Dosierung</div>' + esc(u.dosis) + '</div></span>';
+      }
+      var details = '';
+      if (auf) {
+        if (!u.gruppe) {
+          var m = u.mitglieder[0];
+          details = mitgliedDetails(m) +
+            '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' +
+            '<button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>';
+        } else {
+          details = '<div class="aktionen"><button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>' +
+            u.mitglieder.map(function (m) {
+              return '<div class="mitglied"><div class="mname">' + esc(m.name) + (m.aktiv ? '' : ' (inaktiv)') + '</div>' + mitgliedDetails(m) +
+                '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button></div></div>';
+            }).join('');
+        }
+      }
+      return '<div class="karte ' + statusKlasse(u) + (u.aktiv ? '' : ' inaktiv') + '" data-key="' + k + '">' +
+        '<div class="reihe">' +
+          '<button class="griff" aria-label="Verschieben: ' + esc(u.name) + ' (ziehen oder Pfeiltasten hoch und runter)" title="Ziehen zum Sortieren">⠿</button>' +
+          '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
+            '<span><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span><span class="frist">' + esc(text) + '</span></span>' + chevron(auf) + '</button>' +
+        '</div>' +
+        '<div class="zeile2">' + chip + '<button class="neu" data-a="lieferung" data-k="' + k + '">Neue Lieferung erhalten</button></div>' +
+        (auf ? '<div class="detail">' + details + '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+  if (html === letzteListe) return;   // nichts geändert: DOM nicht anfassen (kein Flackern, keine Scroll-Sprünge)
+  letzteListe = html;
+  $('liste').innerHTML = html;
+}
+
+// Eingabefelder für Vorlauf/Bündelung nur überschreiben, wenn sich der Wert auf dem Server geändert hat
+// und das Feld nicht gerade bearbeitet wird. So geht Getipptes nicht verloren.
+var einstGesetzt = null;
+function renderEinstellungen() {
+  var e = state.einstellungen;
+  if (einstGesetzt && einstGesetzt.vorlauf === e.vorlauf && einstGesetzt.buendel === e.buendel) return;
+  if (document.activeElement !== $('vorlauf')) $('vorlauf').value = e.vorlauf;
+  if (document.activeElement !== $('buendel')) $('buendel').value = e.buendel;
+  einstGesetzt = { vorlauf: e.vorlauf, buendel: e.buendel };
+}
+var letzteGruppen = '';
+function renderGruppen() {
+  var gr = {};
+  state.medikamente.forEach(function (m) { if (m.gruppe) gr[m.gruppe] = true; });
+  var html = Object.keys(gr).sort().map(function (g) { return '<option value="' + esc(g) + '"></option>'; }).join('');
+  if (html !== letzteGruppen) { letzteGruppen = html; $('gruppen').innerHTML = html; }
 }
 
 function findeEinheit(key) {
-  return einheiten().filter(function (u) { return u.key === key; })[0];
+  return sortierteEinheiten().filter(function (u) { return u.key === key; })[0];
 }
 
 $('liste').addEventListener('click', function (e) {
@@ -417,9 +577,121 @@ $('liste').addEventListener('click', function (e) {
   else if (a === 'mail') { einzelmail(k); }
 });
 
+/* ---- Ziehen zum Sortieren (wie Ziele in Google Maps) ----
+   Pointer Events: Maus und Touch. Beim Loslassen wird die Reihenfolge aus dem DOM gelesen und sofort gespeichert. */
+var activeDrag = null;
+var autoScrollTimer = null;
+
+function listeReihenfolge() {
+  return Array.prototype.slice.call($('liste').children).map(function (r) { return r.dataset.key; }).filter(Boolean);
+}
+
+$('liste').addEventListener('pointerdown', function (e) {
+  var griff = e.target.closest('.griff');
+  if (!griff) return;
+  if (activeDrag) return;
+  if (e.button !== undefined && e.button !== 0) return;
+  e.preventDefault();
+  var li = griff.closest('.karte');
+  activeDrag = { li: li, handle: griff, pointerId: e.pointerId, y: e.clientY, startOrder: listeReihenfolge().join('\u0001') };
+  dragAktiv = true;
+  li.classList.add('dragging');
+  try { griff.setPointerCapture(e.pointerId); } catch (err) {}
+  document.addEventListener('pointermove', onDragMove);
+  document.addEventListener('pointerup', endDrag);
+  // pointercancel feuert z. B., wenn der Browser die Geste als Scrollen übernimmt
+  document.addEventListener('pointercancel', endDrag);
+  window.addEventListener('blur', endDrag);
+  autoScrollTimer = setInterval(autoScrollStep, 40);
+});
+
+function platziere(y) {
+  var d = activeDrag;
+  if (!d) return;
+  var ul = $('liste');
+  var zeilen = Array.prototype.slice.call(ul.children).filter(function (r) { return r !== d.li; });
+  for (var i = 0; i < zeilen.length; i++) {
+    var rect = zeilen[i].getBoundingClientRect();
+    if (y < rect.top + rect.height / 2) { ul.insertBefore(d.li, zeilen[i]); return; }
+  }
+  ul.appendChild(d.li);
+}
+function onDragMove(ev) {
+  if (!activeDrag) return;
+  if (!document.contains(activeDrag.li)) { endDrag(); return; }
+  if (ev.cancelable) ev.preventDefault();
+  activeDrag.y = ev.clientY;
+  platziere(ev.clientY);
+}
+// Am oberen/unteren Rand mitscrollen
+function autoScrollStep() {
+  if (!activeDrag) return;
+  var y = activeDrag.y, zone = 70, delta = 0;
+  if (y < zone) delta = -Math.max(6, (zone - y) / 3);
+  else if (y > window.innerHeight - zone) delta = Math.max(6, (y - (window.innerHeight - zone)) / 3);
+  if (delta) { window.scrollBy(0, delta); platziere(y); }
+}
+function endDrag() {
+  var d = activeDrag;
+  if (!d) return;
+  activeDrag = null;
+  clearInterval(autoScrollTimer);
+  autoScrollTimer = null;
+  d.li.classList.remove('dragging');
+  try { d.handle.releasePointerCapture(d.pointerId); } catch (err) {}
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', endDrag);
+  document.removeEventListener('pointercancel', endDrag);
+  window.removeEventListener('blur', endDrag);
+  dragAktiv = false;
+  var neu = listeReihenfolge();
+  if (neu.join('\u0001') === d.startOrder) { if (renderAusstehend) render(); return; }
+  speichereReihenfolge(neu);
+}
+
+// Tastatur: Pfeil hoch/runter am Griff verschiebt die Karte um eine Position
+$('liste').addEventListener('keydown', function (e) {
+  var griff = e.target.closest ? e.target.closest('.griff') : null;
+  if (!griff || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  e.preventDefault();
+  var li = griff.closest('.karte'), ul = $('liste');
+  if (e.key === 'ArrowUp' && li.previousElementSibling) ul.insertBefore(li, li.previousElementSibling);
+  else if (e.key === 'ArrowDown' && li.nextElementSibling) ul.insertBefore(li.nextElementSibling, li);
+  else return;
+  griff.focus();
+  clearTimeout(tastaturTimer);
+  tastaturTimer = setTimeout(function () {
+    tastaturTimer = null;
+    speichereReihenfolge(listeReihenfolge());
+  }, 600);
+});
+
+function speichereReihenfolge(schluessel) {
+  var ids = [];
+  schluessel.forEach(function (k) {
+    var u = findeEinheit(k);
+    if (u) u.mitglieder.forEach(function (m) { ids.push(m.id); });
+  });
+  var stamp = ++optimisticCounter;
+  ordnungOverlay = { ids: ids, stamp: stamp };
+  applyOrdnung();          // sofort lokal übernehmen
+  letzteListe = '';        // DOM nach dem Ziehen einmal sicher aus dem Stand neu aufbauen
+  render();
+  call('reihenfolge', { ids: ids }).then(function (s) {
+    if (ordnungOverlay && ordnungOverlay.stamp === stamp) ordnungOverlay = null;
+    setState(s);
+  }).catch(function (e) {
+    if (ordnungOverlay && ordnungOverlay.stamp === stamp) ordnungOverlay = null;
+    fehler(e); neuLaden();
+  });
+}
+
 /* ---- Formular ---- */
 function finde(id) {
   return state.medikamente.filter(function (m) { return m.id === id; })[0];
+}
+function formularOffen() {
+  return $('overlay').style.display === 'block' || $('zugang').style.display === 'block';
 }
 function fuelle(m) {
   $('f_id').value = m.id || '';
@@ -447,38 +719,76 @@ function bearbeite(id) {
 }
 function schliesse() { $('overlay').style.display = 'none'; }
 
+function neueId() {
+  return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+}
+
+// Speichern wirkt sofort in der Oberfläche; der Server-Aufruf läuft im Hintergrund.
 function speichere() {
   var m = {
     id: $('f_id').value,
-    name: $('f_name').value,
-    gruppe: $('f_gruppe').value,
-    dosierung: $('f_dosierung').value,
-    text: $('f_text').value,
+    name: $('f_name').value.trim(),
+    gruppe: $('f_gruppe').value.trim(),
+    dosierung: $('f_dosierung').value.trim(),
+    text: $('f_text').value.trim(),
     beginn: $('f_beginn').value,
     frist: $('f_frist').value,
-    reichweite: $('f_reichweite').value,
+    reichweite: $('f_reichweite').value === '' ? '' : Number($('f_reichweite').value),
     foto: $('f_foto').checked,
     aktiv: $('f_aktiv').checked,
-    notiz: $('f_notiz').value
+    notiz: $('f_notiz').value.trim()
   };
-  $('btnSpeichern').disabled = true;
-  api('speichere', { medikament: m }).then(function () {
-    $('btnSpeichern').disabled = false;
-    schliesse(); meldung('Gespeichert'); laden();
+  if (!m.name) { meldung('Name fehlt.', true); return; }
+  if (!m.text) { meldung('Text für die Mail fehlt.', true); return; }
+  var istNeu = !m.id;
+  if (istNeu) {
+    m.id = neueId();
+    var hoechste = 0;
+    state.medikamente.forEach(function (x) { if ((x.reihenfolge || 0) > hoechste && x.reihenfolge < 100000) hoechste = x.reihenfolge; });
+    m.reihenfolge = hoechste + 1;
+  }
+  var patch = {};
+  for (var k in m) { if (m.hasOwnProperty(k) && k !== 'id') patch[k] = m[k]; }
+  if (!istNeu) delete patch.reihenfolge;
+  var stamp = markOptimistic(m.id, patch, istNeu);
+  schliesse();
+  applyOptimistic();
+  render();
+  call('speichere', { medikament: m }).then(function (s) {
+    clearOptimistic(m.id, stamp);
+    setState(s);
+    meldung('Gespeichert');
   }).catch(function (e) {
-    $('btnSpeichern').disabled = false; fehler(e);
+    clearOptimistic(m.id, stamp);
+    fehler(e); neuLaden();
   });
 }
 
 function loesche() {
   var m = finde($('f_id').value);
   if (!m || !confirm('"' + m.name + '" wirklich löschen?')) return;
-  api('loesche', { id: m.id }).then(function () {
-    schliesse(); meldung('Gelöscht'); laden();
-  }).catch(fehler);
+  var id = m.id;
+  geloescht[id] = true;
+  schliesse();
+  applyDeletions();
+  render();
+  call('loesche', { id: id }).then(function (s) {
+    delete geloescht[id];
+    setState(s);
+    meldung('Gelöscht');
+  }).catch(function (e) {
+    delete geloescht[id];
+    fehler(e); neuLaden();
+  });
 }
 
 /* ---- Aktionen je Einheit (Einzelmedikament oder Gruppe) ---- */
+function addTage(datum, n) {
+  var a = datum.split('-').map(Number);
+  var d = new Date(Date.UTC(a[0], a[1] - 1, a[2]) + n * 86400000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+
 function lieferung(key) {
   var u = findeEinheit(key);
   var ms = u.mitglieder.filter(function (m) { return u.aktiveIds.indexOf(m.id) >= 0; });
@@ -491,30 +801,100 @@ function lieferung(key) {
     ? 'Neue Lieferung für "' + u.name + '" (' + ms.map(function (m) { return m.name; }).join(', ') + '): Beginn auf heute, Fristende je Medikament auf heute + Reichweite setzen?'
     : 'Neue Lieferung für "' + u.name + '": Beginn auf heute und Fristende auf heute + ' + ms[0].reichweite + ' Tage setzen?';
   if (!confirm(frage)) return;
-  api('lieferung', { ids: ms.map(function (m) { return m.id; }) }).then(function (neu) {
-    meldung('Neues Fristende: ' + datumDe(neu)); laden();
-  }).catch(fehler);
+  var stamps = {};
+  ms.forEach(function (m) {
+    stamps[m.id] = markOptimistic(m.id, { beginn: state.heute, frist: addTage(state.heute, Number(m.reichweite)) });
+  });
+  applyOptimistic();
+  render();
+  call('lieferung', { ids: ms.map(function (m) { return m.id; }) }).then(function (s) {
+    ms.forEach(function (m) { clearOptimistic(m.id, stamps[m.id]); });
+    setState(s);
+    meldung('Neue Lieferung eingetragen');
+  }).catch(function (e) {
+    ms.forEach(function (m) { clearOptimistic(m.id, stamps[m.id]); });
+    fehler(e); neuLaden();
+  });
 }
 
 function einzelmail(key) {
   var u = findeEinheit(key);
   if (!confirm('Mail für "' + u.name + '" jetzt an deine Outlook-Adresse senden?')) return;
   meldung('Mail wird gesendet …');
-  api('einzelmail', { ids: u.aktiveIds }).then(function () {
+  call('einzelmail', { ids: u.aktiveIds }).then(function (s) {
+    setState(s);
     meldung('Mail für "' + u.name + '" gesendet');
   }).catch(fehler);
 }
 
 function speichereEinst() {
-  api('einstellungen', { vorlauf: $('vorlauf').value, buendel: $('buendel').value }).then(function () {
-    meldung('Einstellungen gespeichert'); laden();
-  }).catch(fehler);
+  var v = Number($('vorlauf').value), b = Number($('buendel').value);
+  if (isNaN(v) || isNaN(b) || v < 0 || b < 0 || $('vorlauf').value === '' || $('buendel').value === '') {
+    meldung('Bitte gültige Zahlen eingeben.', true); return;
+  }
+  var stamp = ++optimisticCounter;
+  einstOverlay = { vorlauf: v, buendel: b, stamp: stamp };
+  einstGesetzt = { vorlauf: v, buendel: b };
+  applyEinst();
+  render();
+  meldung('Einstellungen gespeichert');
+  call('einstellungen', { vorlauf: v, buendel: b }).then(function (s) {
+    if (einstOverlay && einstOverlay.stamp === stamp) einstOverlay = null;
+    setState(s);
+  }).catch(function (e) {
+    if (einstOverlay && einstOverlay.stamp === stamp) einstOverlay = null;
+    fehler(e); neuLaden();
+  });
 }
 
 function testmail() {
   meldung('Testmail wird gesendet …');
-  api('testmail').then(function () { meldung('Testmail gesendet'); }).catch(fehler);
+  call('testmail').then(function (s) { setState(s); meldung('Testmail gesendet'); }).catch(fehler);
 }
+
+/* ---- Automatische Aktualisierung ----
+   Kein fester Takt: solange jemand aktiv ist, wird häufiger aktualisiert, danach seltener. Im Hintergrund wird gar
+   nicht aktualisiert. Es wird nie dazwischengefunkt: nicht während eine Änderung unterwegs ist, nicht beim
+   Ziehen und nicht, solange ein Formular offen ist. */
+var POLL_ACTIVE = 10000;
+var POLL_IDLE = 60000;
+var ACTIVE_WINDOW = 180000;
+var refreshTimer = null;
+var lastRefreshStart = 0;
+
+function planeAktualisierung() {
+  clearTimeout(refreshTimer);
+  var idle = (Date.now() - lastLocalAction) > ACTIVE_WINDOW;
+  refreshTimer = setTimeout(fuehreAktualisierungAus, idle ? POLL_IDLE : POLL_ACTIVE);
+}
+
+function stoert() {
+  return document.hidden || pendingMutations > 0 || dragAktiv || tastaturTimer || formularOffen();
+}
+
+function fuehreAktualisierungAus() {
+  if (stoert()) { planeAktualisierung(); return; }
+  lastRefreshStart = Date.now();
+  call('lade').then(function (s) {
+    setState(s);
+    planeAktualisierung();
+  }).catch(function () { planeAktualisierung(); });
+}
+
+function sofortAktualisieren() {
+  if (stoert()) return;
+  if (Date.now() - lastRefreshStart < 1500) return;
+  clearTimeout(refreshTimer);
+  fuehreAktualisierungAus();
+}
+
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) { clearTimeout(refreshTimer); return; }
+  lastLocalAction = Date.now();
+  sofortAktualisieren();
+  planeAktualisierung();
+});
+window.addEventListener('focus', sofortAktualisieren);
 
 if (zugang().url && zugang().key) { laden(); } else { zeigeZugang(); }
 </script>
