@@ -5,120 +5,218 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Medikamente</title>
-<meta name="theme-color" content="#1f4e79">
+<meta name="theme-color" content="#fbf9fc">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
+  /* Schrift: Segoe UI (Windows). Auf Handys Open Sans aus dem Repository als ähnlicher Ersatz. */
+  @font-face { font-family: 'Open Sans App'; src: url('OpenSans-Light.ttf') format('truetype'); font-weight: 300; font-display: swap; }
+  @font-face { font-family: 'Open Sans App'; src: url('OpenSans-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Open Sans App'; src: url('OpenSans-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Open Sans App'; src: url('OpenSans-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+
+  :root {
+    --acc: #a64d9c;      /* Magenta-Flieder: Plus-Knopf, heute, Schalter */
+    --acc-t: #f6ebf5;
+    --past: #ecdcf7;     /* Pastell-Flieder: Hauptknöpfe */
+    --past-t: #4b2367;   /* dunkles Lila: Schrift auf Pastell */
+    --ink: #1d1823;
+    --grau: #6e6875;
+    --linie: #eee8f1;
+    --flaeche: #f4f0f6;
+    --bg: #fbf9fc;
+  }
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, Roboto, Arial, sans-serif; margin: 0; background: #f4f5f7; color: #1c1e21; }
-  header { background: #1f4e79; color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
-  header h1 { font-size: 18px; margin: 0; }
-  main { max-width: 720px; margin: 0 auto; padding: 12px; }
-  button { font: inherit; border: 0; border-radius: 8px; padding: 9px 14px; background: #1f4e79; color: #fff; cursor: pointer; }
-  button.sek { background: #e3e6ea; color: #1c1e21; }
-  button.gefahr { background: #b3261e; }
-  button:disabled { opacity: .5; }
-  .karte { background: #fff; border-radius: 10px; margin-bottom: 10px; border-left: 6px solid #9aa0a6; position: relative; }
-  .karte.rot { border-left-color: #b3261e; }
-  .karte.orange { border-left-color: #e08a00; }
-  .karte.gruen { border-left-color: #2e7d32; }
-  .reihe { display: flex; align-items: stretch; }
-  .griff { flex: none; width: 36px; min-height: 44px; padding: 0; margin: 0; border: 0; border-radius: 10px 0 0 0;
-    background: none; color: #5f6368; font-size: 18px; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Segoe UI', 'Open Sans App', system-ui, -apple-system, sans-serif; font-size: 16px; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; cursor: pointer; border: 0; color: inherit; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+  .seite { max-width: 640px; margin: 0 auto; padding: 0 16px calc(120px + env(safe-area-inset-bottom)); }
+  .kopfzeile { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: calc(36px + env(safe-area-inset-top)) 4px 14px; }
+  .unterzeile { font-size: 14px; font-weight: 600; color: var(--grau); }
+  h1 { margin: 2px 0 0; font-size: 36px; font-weight: 300; letter-spacing: -0.01em; line-height: 1.1; }
+
+  .rund { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--linie); background: #fff;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none; }
+  .rund.klein { width: 36px; height: 36px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 18px; border-radius: 999px;
+    font-size: 15px; font-weight: 600; background: var(--flaeche); color: var(--ink); white-space: nowrap; }
+  .pill.klein { height: 36px; padding: 0 14px; font-size: 14px; }
+  .pill.primaer { background: var(--past); color: var(--past-t); }
+  .pill.gefahr { background: #fde4ec; color: #a1173f; }
+  .pill:disabled { opacity: .5; }
+  .fab { position: fixed; right: max(20px, calc(50% - 300px)); bottom: calc(26px + env(safe-area-inset-bottom)); z-index: 4;
+    width: 64px; height: 64px; border-radius: 50%; background: var(--acc); color: #fff;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(166,77,156,.35); }
+
+  /* Abschnitte und Karten */
+  .abschnitt { display: flex; align-items: baseline; gap: 8px; margin: 26px 4px 12px; }
+  .abschnitt h2 { margin: 0; font-size: 25px; font-weight: 300; }
+  .abschnitt .anz { font-size: 16px; font-weight: 300; color: var(--grau); }
+  .karte { position: relative; background: #fff; border: 1px solid var(--linie); border-radius: 18px; padding: 10px 12px 12px 6px; margin-bottom: 10px; }
+  .karte.dragging { opacity: .8; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 5; }
+  .reihe { display: flex; align-items: center; gap: 4px; }
+  .griff { flex: none; width: 30px; min-height: 44px; padding: 0; background: none; display: flex; align-items: center; justify-content: center;
+    cursor: grab; touch-action: none; user-select: none; }
   .griff:active { cursor: grabbing; }
-  .karte.dragging { opacity: .7; box-shadow: 0 2px 10px rgba(0,0,0,.2); z-index: 5; }
-  .kopf { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
-    background: none; color: inherit; border: 0; border-radius: 0; padding: 12px 12px 8px 0; min-height: 44px; }
+  .kopf { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; background: none; padding: 4px 0; text-align: left; min-height: 44px; }
   .inaktiv .kopf { opacity: .55; }
-  .name { display: block; font-weight: 600; font-size: 16px; }
-  .frist { display: block; font-size: 14px; margin-top: 2px; }
-  .zeile2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px 36px; }
-  .zeile2 .neu { margin-left: auto; }
+  .kt { flex: 1; min-width: 0; }
+  .name { display: block; font-size: 17px; font-weight: 600; }
+  .metazeile { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 5px; }
+  .meta { font-size: 14px; color: var(--grau); }
+  .status { flex: none; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .st-rot { background: #fde4ec; color: #a1173f; }
+  .st-orange { background: #ffead6; color: #8a4500; }
+  .st-gruen { background: #e1f5ea; color: #1d6b3f; }
+  .st-grau { background: #f0eef2; color: #5f5a66; }
+  .zeile2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0 0 30px; }
+  .zeile2 .pill { margin-left: auto; }
   .chipwrap { position: relative; display: inline-block; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 10px; min-height: 36px;
-    border: 1px solid #c4c7cc; border-radius: 18px; background: #fff; color: #1c1e21; }
-  .pop { display: none; position: absolute; left: 0; top: calc(100% + 4px); z-index: 20; width: max-content; max-width: 260px;
-    background: #1c1e21; color: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
-    font-size: 13px; white-space: pre-wrap; }
-  .pop .pl { font-size: 12px; color: #c9ccd1; margin-bottom: 2px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px;
+    border: 1px solid var(--linie); background: #fff; font-size: 14px; font-weight: 600; }
+  .pop { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 20; width: max-content; max-width: 280px;
+    background: var(--ink); color: #fff; padding: 12px 14px; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    font-size: 14px; line-height: 1.35; white-space: pre-wrap; }
+  .pop .pl { font-size: 12px; color: #bdb6c4; margin-bottom: 2px; }
   .chipwrap.an .pop { display: block; }
   @media (hover: hover) { .chipwrap:hover .pop { display: block; } }
-  .detail { padding: 0 12px 12px 36px; border-top: 1px solid #eceef1; }
-  .wert { margin-top: 10px; }
-  .wert .l { font-size: 12px; color: #5f6368; }
-  .wert .v { font-size: 14px; margin-top: 1px; white-space: pre-wrap; }
-  .mitglied { background: #f4f5f7; border-radius: 8px; padding: 10px; margin-top: 10px; }
-  .mitglied .mname { font-weight: 600; font-size: 14px; }
-  .aktionen { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .abschnitt { font-size: 15px; margin: 18px 0 8px; color: #1c1e21; }
-  .seg { display: flex; gap: 6px; margin-top: 3px; }
-  .seg button { flex: 1; min-height: 40px; padding: 9px 4px; background: #e3e6ea; color: #1c1e21; }
-  .seg button[aria-pressed="true"] { background: #1f4e79; color: #fff; }
-  #artWahl .l { font-size: 13px; color: #444; margin-top: 10px; }
-  .vb { margin-top: 14px; padding: 10px 12px; background: #f4f5f7; border-radius: 8px; }
-  .vbtitel { font-size: 13px; font-weight: 600; }
-  .tagesliste { margin-top: 10px; padding: 10px 12px; background: #f4f5f7; border-radius: 8px; font-size: 14px; }
-  .tagesliste .tk { font-size: 12px; color: #5f6368; }
-  .tagesliste .te { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-  .tagesliste .m { display: inline-block; width: 8px; height: 8px; flex: none; }
-  .box { background: #fff; border-radius: 10px; padding: 12px; margin-top: 16px; }
-  .box h2 { font-size: 15px; margin: 0 0 8px; }
-  label { display: block; font-size: 13px; margin: 10px 0 3px; color: #444; }
-  input[type=text], input[type=number], input[type=date], textarea {
-    width: 100%; font: inherit; padding: 8px; border: 1px solid #c4c7cc; border-radius: 6px; background: #fff; }
-  textarea { min-height: 70px; }
+  .detail { margin: 12px 0 0 30px; padding-top: 4px; border-top: 1px solid var(--linie); }
+  .wert { margin-top: 12px; }
+  .wert .l { font-size: 12px; color: var(--grau); }
+  .wert .v { font-size: 15px; margin-top: 2px; line-height: 1.35; white-space: pre-wrap; }
+  .mitglied { background: var(--flaeche); border-radius: 14px; padding: 12px 14px; margin-top: 12px; }
+  .mname { font-size: 15px; font-weight: 600; }
+  .mname span { font-weight: 400; color: var(--grau); }
+  .aktionen { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+  /* Kalender */
+  .kalkarte { background: #fff; border: 1px solid var(--linie); border-radius: 20px; padding: 16px 12px 14px; }
+  .tagesliste { margin: 8px 4px 0; padding-top: 12px; border-top: 1px solid var(--linie); }
+  .tagesliste .tk { font-size: 13px; font-weight: 700; }
+  .tagesliste .te { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 15px; }
+  .tagesliste .m { width: 8px; height: 8px; flex: none; }
+  .tagesliste .q { color: var(--grau); font-size: 13px; margin-left: auto; text-align: right; }
+
+  /* Einstellungen */
+  .grtitel { margin: 22px 4px 8px; font-size: 13px; font-weight: 700; color: var(--grau); letter-spacing: .04em; text-transform: uppercase; }
+  .gruppe { background: #fff; border: 1px solid var(--linie); border-radius: 18px; overflow: hidden; }
+  .ezeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 16px; border-bottom: 1px solid var(--linie); }
+  .ezeile:last-child { border-bottom: 0; }
+  .et { font-size: 16px; font-weight: 600; }
+  .eu { font-size: 13px; color: var(--grau); margin-top: 2px; }
+  .stepper { display: flex; align-items: center; gap: 10px; background: var(--flaeche); border-radius: 999px; padding: 4px; flex: none; }
+  .stepper button { width: 36px; height: 36px; border-radius: 50%; background: #fff; font-size: 20px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .stepper span { min-width: 28px; text-align: center; font-weight: 700; }
+  .punkt { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #c9c3ce; }
+  .info { font-size: 13px; color: var(--grau); line-height: 1.4; }
+
+  /* Blätter von unten: Formular und Zugang */
+  .blatt-hg { display: none; position: fixed; inset: 0; background: rgba(20,16,24,.45); z-index: 10; }
+  .blatt { position: absolute; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto; max-height: calc(100% - 36px); overflow-y: auto;
+    background: #fff; border-radius: 24px 24px 0 0; padding: 10px 20px 0; }
+  .griffbalken { width: 40px; height: 5px; border-radius: 3px; background: #d9d3de; margin: 0 auto 14px; }
+  .blattkopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .blattkopf h2 { margin: 0; font-size: 28px; font-weight: 300; }
+  .blatt label { display: block; margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--grau); }
+  .blatt input[type=text], .blatt input[type=number], .blatt input[type=date], .blatt input[type=time], .blatt textarea {
+    display: block; width: 100%; margin-top: 6px; height: 48px; padding: 0 14px; border: 0; border-radius: 12px;
+    background: var(--flaeche); font: inherit; font-size: 16px; color: var(--ink); }
+  .blatt textarea { height: auto; min-height: 72px; padding: 12px 14px; resize: vertical; }
   .zeile { display: flex; gap: 10px; }
-  .zeile > div { flex: 1; }
-  .check { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 14px; }
-  #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); overflow-y: auto; padding: 12px; }
-  #formular { background: #fff; max-width: 560px; margin: 10px auto; border-radius: 12px; padding: 14px; }
-  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #202124; color: #fff;
-    padding: 10px 16px; border-radius: 8px; display: none; max-width: 90%; z-index: 10; }
-  #toast.fehler { background: #b3261e; }
+  .zeile > div { flex: 1; min-width: 0; }
+  .seg { display: flex; gap: 4px; padding: 4px; background: var(--flaeche); border-radius: 999px; margin-top: 16px; }
+  .seg button { flex: 1; height: 38px; border-radius: 999px; background: transparent; color: var(--grau); font-size: 15px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .schalterzeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+  .schalterzeile label { margin: 0; font-size: 16px; font-weight: 600; color: var(--ink); }
+  .schalterzeile .eu { font-weight: 400; }
+  input.schalter { appearance: none; -webkit-appearance: none; width: 50px; height: 30px; border-radius: 999px; background: #d9d3de;
+    position: relative; flex: none; margin: 0; cursor: pointer; transition: background .15s; }
+  input.schalter::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .15s; }
+  input.schalter:checked { background: var(--acc); }
+  input.schalter:checked::after { left: 23px; }
+  .vb { margin-top: 18px; padding: 14px 16px; background: var(--flaeche); border-radius: 16px; }
+  .vb .schalterzeile { margin-top: 0; }
+  .vb input[type=text], .vb input[type=number], .vb textarea { background: #fff; }
+  .blattfuss { position: sticky; bottom: 0; background: #fff; padding: 16px 0 calc(20px + env(safe-area-inset-bottom)); margin-top: 8px; display: flex; gap: 8px; }
+  .blattfuss .pill.primaer { flex: 1; height: 54px; font-size: 17px; justify-content: center; }
+  .blattfuss .pill.gefahr { height: 54px; }
+
+  #toast { position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+    background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 999px; display: none; max-width: 90%;
+    font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+  #toast.fehler { background: #a1173f; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Medikamente</h1>
-  <div style="display:flex;gap:8px">
-    <button class="sek" onclick="zeigeZugang()">Zugang</button>
-    <button class="sek" onclick="neu()">+ Neu</button>
-  </div>
-</header>
-<main>
-  <div id="kalender" class="box" style="margin-top:0;margin-bottom:14px;display:none"></div>
-  <h2 id="kopfRez" class="abschnitt" style="display:none">Rezepte</h2>
-  <div id="liste">Lädt …</div>
-  <h2 id="kopfAT" class="abschnitt" style="display:none">Aufgaben &amp; Termine</h2>
-  <div id="listeAT"></div>
-
-  <div class="box">
-    <h2>Google Kalender</h2>
-    <div id="kalStatus" class="info"></div>
-    <div class="aktionen"><button class="sek" onclick="kalenderAbgleich()">Jetzt abgleichen</button></div>
-  </div>
-
-  <div class="box">
-    <h2>Erinnerungen</h2>
-    <div class="zeile">
-      <div><label for="vorlauf">Vorlauf vor Fristende (Tage)</label><input type="number" id="vorlauf" min="0"></div>
-      <div><label for="buendel">Bündelungsfenster (Tage)</label><input type="number" id="buendel" min="0"></div>
+<div id="ansichtStart">
+  <div class="seite">
+    <div class="kopfzeile">
+      <div><div class="unterzeile" id="heuteText">&nbsp;</div><h1>Medikamente</h1></div>
+      <button class="rund" aria-label="Einstellungen" onclick="zeigeSeite('einst')"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7.6 7.6 0 0 1-2 1.1L14.8 21h-4l-.3-2.5a7.6 7.6 0 0 1-2-1.1l-1.9.7-2-3.4 1.6-1.2a7.4 7.4 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7.6 7.6 0 0 1 2-1.1L10.8 3h4l.3 2.5a7.6 7.6 0 0 1 2 1.1l1.9-.7 2 3.4-1.6 1.2a7.4 7.4 0 0 1 0 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
     </div>
-    <div class="aktionen">
-      <button onclick="speichereEinst()">Einstellungen speichern</button>
-      <button class="sek" onclick="testmail()">Testmail senden</button>
-    </div>
+    <div id="kalender" class="kalkarte" style="display:none"></div>
+    <div class="abschnitt" id="kopfRez" style="display:none"><h2>Rezepte</h2><span class="anz" id="anzRez"></span></div>
+    <div id="liste">Lädt …</div>
+    <div class="abschnitt" id="kopfAT" style="display:none"><h2>Aufgaben &amp; Termine</h2><span class="anz" id="anzAT"></span></div>
+    <div id="listeAT"></div>
   </div>
-</main>
+  <button class="fab" aria-label="Neuer Eintrag" onclick="neu()"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"></path></svg></button>
+</div>
 
-<div id="overlay"><div id="formular">
-  <h2 id="formTitel" style="margin-top:0"></h2>
+<div id="ansichtEinst" style="display:none">
+  <div class="seite">
+    <div style="padding-top:calc(24px + env(safe-area-inset-top))"><button class="rund" aria-label="Zurück zur Übersicht" onclick="zurueck()"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></div>
+    <div class="kopfzeile" style="padding-top:12px"><div><div class="unterzeile">Medikamente</div><h1>Einstellungen</h1></div></div>
+
+    <div class="grtitel">Erinnerungen</div>
+    <div class="gruppe">
+      <div class="ezeile">
+        <div><div class="et">Vorlauf</div><div class="eu">Tage vor dem Fristende</div></div>
+        <div class="stepper"><button aria-label="Vorlauf verringern" onclick="aendereEinst('vorlauf', -1)">−</button><span id="vorlaufWert">–</span><button aria-label="Vorlauf erhöhen" onclick="aendereEinst('vorlauf', 1)">+</button></div>
+      </div>
+      <div class="ezeile">
+        <div><div class="et">Bündeln</div><div class="eu">Was in diesen Tagen fällig wird, kommt mit</div></div>
+        <div class="stepper"><button aria-label="Bündelung verringern" onclick="aendereEinst('buendel', -1)">−</button><span id="buendelWert">–</span><button aria-label="Bündelung erhöhen" onclick="aendereEinst('buendel', 1)">+</button></div>
+      </div>
+      <div class="ezeile">
+        <div><div class="et">Testmail</div><div class="eu">Alle Einträge mit Frist an deine Outlook-Adresse</div></div>
+        <button class="pill klein" onclick="testmail()"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Senden</button>
+      </div>
+    </div>
+
+    <div class="grtitel">Google Kalender</div>
+    <div class="gruppe">
+      <div class="ezeile">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="punkt" id="kalPunkt"></span>
+          <div style="min-width:0"><div class="et" id="kalName">Kalender</div><div class="eu" id="kalStatus"></div></div></div>
+        <button class="pill klein" onclick="kalenderAbgleich()"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Abgleichen</button>
+      </div>
+    </div>
+
+    <div class="grtitel">Zugang</div>
+    <div class="gruppe">
+      <div class="ezeile">
+        <div><div class="et">Web-App und Schlüssel</div><div class="eu">Nur auf diesem Gerät gespeichert</div></div>
+        <button class="pill klein" onclick="zeigeZugang()">Ändern</button>
+      </div>
+    </div>
+    <p class="info" style="margin:14px 4px">Änderungen werden sofort gespeichert.</p>
+  </div>
+</div>
+
+<div id="overlay" class="blatt-hg"><div id="formular" class="blatt" role="dialog" aria-modal="true" aria-labelledby="formTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="formTitel">Neuer Eintrag</h2><button class="rund klein" aria-label="Schließen" onclick="schliesse()"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
   <input type="hidden" id="f_id">
   <input type="hidden" id="f_art" value="rezept">
   <div id="artWahl">
-    <div class="l">Art</div>
     <div class="seg">
       <button type="button" data-art="rezept" aria-pressed="true">Rezept</button>
       <button type="button" data-art="aufgabe" aria-pressed="false">Aufgabe</button>
@@ -128,50 +226,45 @@
   <label for="f_name" id="l_name">Medikament</label><input type="text" id="f_name">
   <label for="f_gruppe">Gruppe (optional, z. B. "Slenyto")</label><input type="text" id="f_gruppe" list="gruppen" autocomplete="off"><datalist id="gruppen"></datalist>
   <div data-for="rezept"><label for="f_dosierung">Dosierung</label><textarea id="f_dosierung"></textarea></div>
-  <div data-for="rezept aufgabe"><label for="f_text" id="l_text">Text für die Mail an das KID (z. B. "1x 100 Stück ...")</label><textarea id="f_text"></textarea></div>
+  <div data-for="rezept aufgabe"><label for="f_text" id="l_text">Text für die Mail an das KID</label><textarea id="f_text"></textarea></div>
   <div class="zeile">
     <div data-for="rezept"><label for="f_beginn">Beginn</label><input type="date" id="f_beginn"></div>
     <div><label for="f_frist" id="l_frist">Fristende</label><input type="date" id="f_frist"></div>
   </div>
-  <div data-for="rezept"><label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1"></div>
-  <div data-for="aufgabe"><label for="f_wiederholung">Wiederholung alle (Monate, leer = einmalig)</label><input type="number" id="f_wiederholung" min="1"></div>
+  <div data-for="rezept"><label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1" inputmode="numeric"></div>
+  <div data-for="aufgabe"><label for="f_wiederholung">Wiederholung alle (Monate, leer = einmalig)</label><input type="number" id="f_wiederholung" min="1" inputmode="numeric"></div>
   <div class="zeile" data-for="termin">
-    <div><label for="f_von">Uhrzeit von</label><input type="time" id="f_von"></div>
-    <div><label for="f_bis">Uhrzeit bis</label><input type="time" id="f_bis"></div>
+    <div><label for="f_von">Von</label><input type="time" id="f_von"></div>
+    <div><label for="f_bis">Bis</label><input type="time" id="f_bis"></div>
   </div>
   <div data-for="termin"><label for="f_ort">Ort</label><input type="text" id="f_ort"></div>
   <div data-for="termin" class="vb">
-    <div class="vbtitel">Aufgabe vor dem Termin</div>
-    <div class="check"><input type="checkbox" id="f_vb_aktiv"><label for="f_vb_aktiv" style="margin:0">Automatisch anlegen</label></div>
+    <div class="schalterzeile"><label for="f_vb_aktiv">Aufgabe vor dem Termin<div class="eu">Wird automatisch angelegt</div></label><input type="checkbox" class="schalter" id="f_vb_aktiv"></div>
     <div class="zeile">
-      <div><label for="f_vb_titel">Aufgabe</label><input type="text" id="f_vb_titel"></div>
-      <div><label for="f_vb_tage">Tage vorher</label><input type="number" id="f_vb_tage" min="0"></div>
+      <div style="flex:2"><label for="f_vb_titel">Aufgabe</label><input type="text" id="f_vb_titel"></div>
+      <div><label for="f_vb_tage">Tage vorher</label><input type="number" id="f_vb_tage" min="0" inputmode="numeric"></div>
     </div>
     <label for="f_vb_text">Mail-Text an das KID (optional)</label><textarea id="f_vb_text"></textarea>
   </div>
-  <div data-for="rezept" class="check"><input type="checkbox" id="f_foto"><label for="f_foto" style="margin:0">Foto aus Drive anhängen</label></div>
-  <div class="check"><input type="checkbox" id="f_aktiv"><label for="f_aktiv" style="margin:0">Aktiv (Erinnerung an)</label></div>
+  <div data-for="rezept" class="schalterzeile"><label for="f_foto">Foto aus Drive anhängen</label><input type="checkbox" class="schalter" id="f_foto"></div>
+  <div class="schalterzeile"><label for="f_aktiv">Aktiv<div class="eu">Erinnerung an</div></label><input type="checkbox" class="schalter" id="f_aktiv"></div>
   <label for="f_notiz">Notiz</label><textarea id="f_notiz"></textarea>
-  <div id="kalHinweis" class="info" data-for="termin" style="margin-top:8px">Wird im Google Kalender eingetragen und bei Änderungen dort nachgezogen.</div>
-  <div class="aktionen">
-    <button onclick="speichere()" id="btnSpeichern">Speichern</button>
-    <button class="sek" onclick="schliesse()">Abbrechen</button>
-    <button class="gefahr" id="btnLoeschen" onclick="loesche()">Löschen</button>
+  <p id="kalHinweis" class="info" data-for="termin" style="margin:12px 0 0">Wird im Google Kalender eingetragen und bei Änderungen dort nachgezogen.</p>
+  <div class="blattfuss">
+    <button class="pill gefahr" id="btnLoeschen" onclick="loesche()">Löschen</button>
+    <button class="pill primaer" onclick="speichere()" id="btnSpeichern">Speichern</button>
   </div>
 </div></div>
-<div id="zugang" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);overflow-y:auto;padding:12px;z-index:5">
-  <div style="background:#fff;max-width:560px;margin:10px auto;border-radius:12px;padding:14px">
-    <h2 style="margin-top:0">Zugang einrichten</h2>
-    <p class="info">Wird nur auf diesem Gerät im Browser gespeichert.</p>
-    <label for="z_url">Web-App-URL (endet auf /exec)</label><input type="text" id="z_url" autocomplete="off">
-    <label for="z_key">Zugangsschlüssel</label><input type="text" id="z_key" autocomplete="off">
-    <div class="aktionen">
-      <button onclick="speichereZugang()">Speichern</button>
-      <button class="sek" id="z_abbruch" onclick="$('zugang').style.display='none'">Abbrechen</button>
-    </div>
-  </div>
-</div>
-<div id="toast"></div>
+
+<div id="zugang" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="zTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="zTitel">Zugang</h2><button class="rund klein" id="z_abbruch" aria-label="Schließen" onclick="$('zugang').style.display='none'"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <p class="info">Wird nur auf diesem Gerät im Browser gespeichert.</p>
+  <label for="z_url">Web-App-URL (endet auf /exec)</label><input type="text" id="z_url" autocomplete="off">
+  <label for="z_key">Zugangsschlüssel</label><input type="text" id="z_key" autocomplete="off">
+  <div class="blattfuss"><button class="pill primaer" onclick="speichereZugang()">Speichern</button></div>
+</div></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 var state = { medikamente: [], einstellungen: { vorlauf: 7, buendel: 14 }, heute: '', kalender: null, ereignisse: [] };
@@ -361,6 +454,17 @@ function laden(versuche) {
   });
 }
 
+/* ---- Symbole ---- */
+function ico(pfad, groesse, farbe) {
+  return '<svg width="' + (groesse || 18) + '" height="' + (groesse || 18) + '" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path d="' + pfad +
+    '" fill="none" stroke="' + (farbe || 'currentColor') + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+}
+var I_BOX = 'M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8', I_CHECK = 'M5 12.5l4.5 4.5L19 7.5', I_EDIT = 'M4 20h4L19 9l-4-4L4 16v4z',
+    I_MAIL = 'M4 6h16v12H4zM4 7l8 6 8-6', I_INFO = 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5',
+    I_LEFT = 'M15 6l-6 6 6 6', I_RIGHT = 'M9 6l6 6-6 6', I_AUF = 'M6 15l6-6 6 6', I_AB = 'M6 9l6 6 6-6';
+var GRIFF_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">' +
+  [9, 15].map(function (x) { return [6, 12, 18].map(function (y) { return '<circle cx="' + x + '" cy="' + y + '" r="1.6" fill="#a8a1ae"></circle>'; }).join(''); }).join('') + '</svg>';
+
 /* ---- Datum ---- */
 function tagNr(s) {
   var a = s.split('-').map(Number);
@@ -386,6 +490,12 @@ function addMonate(datum, n) {
   return t.getUTCFullYear() + '-' + String(t.getUTCMonth() + 1).padStart(2, '0') + '-' + String(Math.min(a[2], letzter)).padStart(2, '0');
 }
 var WOCHENTAGE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+var WOCHENTAGE_LANG = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+function tagLang(datum) {
+  var a = datum.split('-').map(Number);
+  return WOCHENTAGE_LANG[new Date(tagNr(datum) * 86400000).getUTCDay()] + ', ' + a[2] + '. ' + MONATE[a[1] - 1];
+}
+function datumKurz(datum) { var a = datum.split('-'); return a[2] + '.' + a[1] + '.'; }
 function tagTitel(datum) {
   return WOCHENTAGE[new Date(tagNr(datum) * 86400000).getUTCDay()] + ' ' + datumDe(datum);
 }
@@ -434,17 +544,29 @@ function statusKlasse(u) {
   if (d === null) return '';
   return d < 0 ? 'rot' : d <= state.einstellungen.vorlauf + state.einstellungen.buendel ? 'orange' : 'gruen';
 }
-function relativ(d, art) {
-  if (d < 0) return 'seit ' + (-d) + ' Tagen ' + (art === 'rezept' ? 'abgelaufen' : 'überfällig');
-  return d === 0 ? 'heute' : 'in ' + d + ' Tagen';
+function tageWort(n) { return n === 1 ? '1 Tag' : n + ' Tage'; }
+function statusText(d, art) {
+  if (d < 0) return tageWort(-d) + (art === 'rezept' ? ' abgelaufen' : ' überfällig');
+  if (d === 0) return 'heute';
+  if (d === 1) return 'morgen';
+  return 'in ' + d + ' Tagen';
 }
-function fristZeile(u) {
+// Grauer Text unter dem Namen und farbiges Etikett rechts
+function kopfInfo(u) {
   var m = u.fruehestes;
-  if (!m) return u.vergangen ? 'Termin vergangen' : 'keine Frist hinterlegt';
-  var art = artVon(m), d = tageBis(m.frist), rel = relativ(d, art), dat = datumDe(m.frist);
-  if (art === 'termin') return 'Termin · ' + dat + (m.von ? ', ' + m.von : '') + ' · ' + rel;
-  if (art === 'aufgabe') return (u.gruppe ? m.name + ' bis ' : 'Aufgabe · fällig ') + dat + ' · ' + rel;
-  return 'Frist ' + dat + ' · ' + rel;
+  if (!m) return { meta: u.vergangen ? 'Termin vorbei' : 'Keine Frist hinterlegt', status: u.vergangen ? 'vorbei' : 'offen', klasse: 'grau' };
+  var art = artVon(m), meta;
+  if (art === 'termin') meta = 'Termin ' + datumDe(m.frist) + (m.von ? ', ' + m.von : '');
+  else if (art === 'aufgabe') {
+    if (u.gruppe) {
+      meta = m.name + ' bis ' + datumKurz(m.frist);
+      var t = u.mitglieder.filter(function (x) { return artVon(x) === 'termin' && x.frist && x.frist >= state.heute; })[0];
+      if (t) meta += ' · Termin ' + datumKurz(t.frist) + (t.von ? ', ' + t.von : '');
+    } else {
+      meta = 'Fällig ' + datumDe(m.frist) + (m.wiederholung ? ' · alle ' + m.wiederholung + (m.wiederholung === 1 ? ' Monat' : ' Monate') : '');
+    }
+  } else meta = 'Frist ' + datumDe(m.frist);
+  return { meta: meta, status: statusText(tageBis(m.frist), art), klasse: statusKlasse(u) || 'grau' };
 }
 
 /* ---- Kalender ---- */
@@ -452,13 +574,13 @@ var kalender = { jahr: null, monat: null, tag: null };
 var letzteKalender = '';
 var MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 var FARBEN = {
-  rot: ['#e8a09b', '#4a0e0b'],
-  orange: ['#f4b860', '#3d2800'],
-  gruen: ['#9fd3a2', '#123514']
+  rot: ['#f6c4d3', '#5c0d24'],
+  orange: ['#ffd9b8', '#5a2e00'],
+  gruen: ['#c6ebd5', '#123d24']
 };
 var MAX_LANES = 2;
-var ZEILE_H = 82;
-var BLAU = '#1f4e79', LILA = '#7b3fa0';
+var ZEILE_H = 70;
+var BLAU = '#a64d9c', LILA = '#4b2367';   // Termin: Magenta-Flieder (Kreis), Aufgabe: dunkles Lila (Quadrat)
 
 function kalenderMonat(delta) {
   var d = new Date(Date.UTC(kalender.jahr, kalender.monat + delta, 1));
@@ -526,12 +648,12 @@ function renderKalender() {
     b.lane = l;
   });
 
-  var kopf = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
-    '<button class="sek" aria-label="Vorheriger Monat" onclick="kalenderMonat(-1)" style="width:40px;height:36px;font-size:18px;padding:0">‹</button>' +
-    '<h2 style="font-size:16px;margin:0">' + MONATE[kalender.monat] + ' ' + kalender.jahr + '</h2>' +
-    '<button class="sek" aria-label="Nächster Monat" onclick="kalenderMonat(1)" style="width:40px;height:36px;font-size:18px;padding:0">›</button></div>';
-  var tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(function (n) {
-    return '<div style="flex:1;text-align:center;font-size:12px;color:#5f6368;padding:4px 0">' + n + '</div>';
+  var kopf = '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 12px">' +
+    '<h2 style="margin:0;font-size:22px;font-weight:300">' + MONATE[kalender.monat] + ' ' + kalender.jahr + '</h2>' +
+    '<div style="display:flex;gap:8px"><button class="rund klein" aria-label="Vorheriger Monat" onclick="kalenderMonat(-1)">' + ico(I_LEFT, 20) + '</button>' +
+    '<button class="rund klein" aria-label="Nächster Monat" onclick="kalenderMonat(1)">' + ico(I_RIGHT, 20) + '</button></div></div>';
+  var tage = ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'].map(function (n) {
+    return '<div style="flex:1;text-align:center;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--grau)">' + n + '</div>';
   }).join('');
 
   var zeilen = '';
@@ -541,19 +663,18 @@ function renderKalender() {
     for (var c = 0; c < 7; c++) {
       var nr = wStart + c, dd = new Date(nr * 86400000), datum = nrDatum(nr);
       var imMonat = dd.getUTCMonth() === kalender.monat;
-      var num = nr === heuteNr
-        ? '<span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:#1f4e79;color:#fff;font-size:12px">' + dd.getUTCDate() + '</span>'
-        : '<span style="font-size:12px;color:' + (imMonat ? '#1c1e21' : '#6b7077') + '">' + dd.getUTCDate() + '</span>';
-      var sel = datum === kalender.tag ? 'background:#e8f0f8;' : '';
-      zellen += '<div data-a="tag" data-d="' + datum + '" style="flex:1;padding:2px 3px;border-right:1px solid #eceef1;box-sizing:border-box;cursor:pointer;' + sel + '">' + num + '</div>';
+      var kreis = 'display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:50%;';
+      var stil = nr === heuteNr ? kreis + 'background:var(--acc);color:#fff;font-weight:700'
+        : datum === kalender.tag ? kreis + 'box-shadow:inset 0 0 0 2px var(--acc);color:var(--acc);font-weight:700'
+        : kreis + 'color:' + (imMonat ? 'var(--ink)' : '#b3acb8');
+      zellen += '<div data-a="tag" data-d="' + datum + '" style="flex:1;display:flex;justify-content:center;padding-top:2px;font-size:13px;cursor:pointer"><span style="' + stil + '">' + dd.getUTCDate() + '</span></div>';
       var es = eintraege[datum] || [];
       var arten = [];
       if (es.some(function (x) { return x.art === 'termin'; })) arten.push('termin');
       if (es.some(function (x) { return x.art === 'aufgabe'; })) arten.push('aufgabe');
-      // Marker mittig in der Spalte dieses Tages
       arten.forEach(function (art, i) {
         var form = art === 'termin' ? 'border-radius:50%;background:' + BLAU : 'border-radius:2px;background:' + LILA;
-        marker += '<div style="position:absolute;left:calc(' + ((c + 0.5) / 7 * 100) + '% + ' + ((i - (arten.length - 1) / 2) * 11 - 4) + 'px);top:' + (ZEILE_H - 14) + 'px;width:8px;height:8px;' + form + '"></div>';
+        marker += '<div style="position:absolute;left:calc(' + ((c + 0.5) / 7 * 100) + '% + ' + ((i - (arten.length - 1) / 2) * 10 - 3) + 'px);top:' + (ZEILE_H - 12) + 'px;width:6px;height:6px;' + form + '"></div>';
       });
     }
     var innen = '', ueberlauf = 0;
@@ -562,19 +683,17 @@ function renderKalender() {
       if (b.lane >= MAX_LANES) { ueberlauf++; return; }
       var c0 = Math.max(b.von, wStart) - wStart, c1 = Math.min(b.bis, wEnde) - wStart;
       var lo = b.von < wStart, ro = b.bis > wEnde;
-      var rl = lo ? '0' : '9px', rr = ro ? '0' : '9px';
-      innen += '<div style="position:absolute;left:calc(' + (c0 / 7 * 100) + '% + 1px);width:calc(' + ((c1 - c0 + 1) / 7 * 100) + '% - 2px);top:' + (24 + b.lane * 20) +
-        'px;height:18px;box-sizing:border-box;padding:0 6px;background:' + b.farbe[0] + ';color:' + b.farbe[1] +
-        ';font-size:11px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:' + rl + ' ' + rr + ' ' + rr + ' ' + rl + '">' + esc(b.name) + '</div>';
+      var rl = lo ? '0' : '8px', rr = ro ? '0' : '8px';
+      innen += '<div style="position:absolute;left:calc(' + (c0 / 7 * 100) + '% + 2px);width:calc(' + ((c1 - c0 + 1) / 7 * 100) + '% - 4px);top:' + (32 + b.lane * 18) +
+        'px;height:15px;box-sizing:border-box;padding:0 6px;background:' + b.farbe[0] + ';color:' + b.farbe[1] +
+        ';font-size:10px;font-weight:600;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:' + rl + ' ' + rr + ' ' + rr + ' ' + rl + '">' + esc(b.name) + '</div>';
       if (b.erinn >= Math.max(b.von, wStart) && b.erinn <= Math.min(b.bis, wEnde)) {
-        innen += '<div style="position:absolute;left:calc(' + ((b.erinn - wStart + 0.5) / 7 * 100) + '% - 4px);top:' + (24 + b.lane * 20 + 5) +
-          'px;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:#fff;border:2px solid ' + b.farbe[1] + '"></div>';
+        innen += '<div style="position:absolute;left:calc(' + ((b.erinn - wStart + 0.5) / 7 * 100) + '% - 3px);top:' + (32 + b.lane * 18 + 4) +
+          'px;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px ' + b.farbe[1] + '"></div>';
       }
     });
-    if (ueberlauf > 0) {
-      innen += '<div style="position:absolute;right:3px;top:3px;font-size:11px;color:#5f6368">+' + ueberlauf + '</div>';
-    }
-    zeilen += '<div style="position:relative;height:' + ZEILE_H + 'px;border-top:1px solid #e3e6ea;display:flex">' + zellen +
+    if (ueberlauf > 0) innen += '<div style="position:absolute;right:4px;top:2px;font-size:11px;color:var(--grau)">+' + ueberlauf + '</div>';
+    zeilen += '<div style="position:relative;height:' + ZEILE_H + 'px;display:flex">' + zellen +
       '<div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none">' + innen + marker + '</div></div>';
   }
 
@@ -582,17 +701,16 @@ function renderKalender() {
   var es = (eintraege[kalender.tag] || []).slice().sort(function (x, y) { return (x.von || '') < (y.von || '') ? -1 : 1; });
   var liste = es.length ? es.map(function (x) {
     var m = x.art === 'termin' ? 'border-radius:50%;background:' + BLAU : 'border-radius:2px;background:' + LILA;
-    var zeit = x.von ? '<b>' + esc(x.von) + '</b> ' : '';
-    var zusatz = [x.ort ? esc(x.ort) : '', esc(x.quelle)].filter(Boolean).join(' · ');
-    return '<div class="te"><span class="m" style="' + m + '"></span><span>' + zeit + esc(x.titel) + ' <span style="color:#5f6368">· ' + zusatz + '</span></span></div>';
-  }).join('') : '<div class="te" style="color:#5f6368">Keine Einträge</div>';
-  var tagesliste = '<div class="tagesliste"><div class="tk">' + tagTitel(kalender.tag) + '</div>' + liste + '</div>';
-
-  var legende = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#5f6368">' +
-    '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + BLAU + '"></span> Termin' +
-    '&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + LILA + '"></span> Aufgabe' +
-    '&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:#fff;border:2px solid #3d2800"></span> Erinnerungstag</div>';
-  var html = kopf + '<div style="display:flex">' + tage + '</div><div style="border-bottom:1px solid #e3e6ea">' + zeilen + '</div>' + tagesliste + legende;
+    return '<div class="te"><span class="m" style="' + m + '"></span>' + (x.von ? '<b>' + esc(x.von) + '</b>' : '') +
+      '<span>' + esc(x.titel) + (x.ort ? ' <span style="color:var(--grau)">· ' + esc(x.ort) + '</span>' : '') + '</span>' +
+      '<span class="q">' + esc(x.quelle) + '</span></div>';
+  }).join('') : '<div class="te" style="color:var(--grau)">Keine Einträge</div>';
+  var tagesliste = '<div class="tagesliste"><div class="tk">' + tagLang(kalender.tag) + '</div>' + liste + '</div>';
+  var legende = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 4px 0;font-size:12px;color:var(--grau)">' +
+    '<span style="width:7px;height:7px;border-radius:50%;background:' + BLAU + '"></span> Termin&nbsp;&nbsp;' +
+    '<span style="width:7px;height:7px;border-radius:2px;background:' + LILA + '"></span> Aufgabe&nbsp;&nbsp;' +
+    '<span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #5a2e00"></span> Erinnerungstag</div>';
+  var html = kopf + '<div style="display:flex;padding-bottom:6px">' + tage + '</div>' + zeilen + tagesliste + legende;
   if (html === letzteKalender) return;
   letzteKalender = html;
   box.innerHTML = html;
@@ -643,6 +761,7 @@ function render() {
   renderListe();
   renderEinstellungen();
   renderGruppen();
+  renderKopf();
 }
 
 // Reihenfolge der Karten: die der Einheit mit der kleinsten Reihenfolge ihrer Mitglieder
@@ -656,43 +775,45 @@ function sortierteEinheiten() {
 }
 
 function karteHtml(u) {
-  var auf = !!offen[u.key], k = esc(u.key);
+  var auf = !!offen[u.key], k = esc(u.key), info = kopfInfo(u);
   var chip = '';
   if (u.dosis) {
     chip = '<span class="chipwrap' + (popAn === u.key ? ' an' : '') + '">' +
-      '<button class="chip" data-a="pop" data-k="' + k + '" aria-expanded="' + (popAn === u.key) + '">' + INFO_SVG + 'Dosierung</button>' +
+      '<button class="chip" data-a="pop" data-k="' + k + '" aria-expanded="' + (popAn === u.key) + '">' + ico(I_INFO, 16, '#6e6875') + 'Dosierung</button>' +
       '<div class="pop"><div class="pl">Dosierung</div>' + esc(u.dosis) + '</div></span>';
   }
-  // Hauptknopf: Rezepte "Neue Lieferung erhalten", Aufgaben "Erledigt", reine Termine keiner
+  // Hauptknopf: Rezepte "Neue Lieferung", Aufgaben "Erledigt", reine Termine keiner
   var knopf = '';
   var aktiveRezepte = u.mitglieder.filter(function (m) { return m.aktiv && artVon(m) === 'rezept'; });
-  if (aktiveRezepte.length) knopf = '<button class="neu" data-a="lieferung" data-k="' + k + '">Neue Lieferung erhalten</button>';
-  else if (u.aufgabeIds.length) knopf = '<button class="neu" data-a="erledigt" data-k="' + k + '">Erledigt</button>';
+  if (aktiveRezepte.length) knopf = '<button class="pill primaer klein" data-a="lieferung" data-k="' + k + '">' + ico(I_BOX) + 'Neue Lieferung</button>';
+  else if (u.aufgabeIds.length) knopf = '<button class="pill primaer klein" data-a="erledigt" data-k="' + k + '">' + ico(I_CHECK) + 'Erledigt</button>';
 
   var details = '';
   if (auf) {
-    var mailKnopf = u.hatText ? '<button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button>' : '';
+    var mailKnopf = u.hatText ? '<button class="pill klein" data-a="mail" data-k="' + k + '">' + ico(I_MAIL) + 'Mail auslösen</button>' : '';
     if (!u.gruppe) {
       var m = u.mitglieder[0];
       details = mitgliedZeilen(m, false) +
-        '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' + mailKnopf + '</div>';
+        '<div class="aktionen"><button class="pill klein" data-a="edit" data-k="' + esc(m.id) + '">' + ico(I_EDIT) + 'Bearbeiten</button>' + mailKnopf + '</div>';
     } else {
       details = (mailKnopf ? '<div class="aktionen">' + mailKnopf + '</div>' : '') +
         u.mitglieder.map(function (m) {
-          var erl = artVon(m) === 'aufgabe' && m.aktiv ? '<button class="sek" data-a="erledigt1" data-k="' + esc(m.id) + '">Erledigt</button>' : '';
-          return '<div class="mitglied"><div class="mname">' + esc(m.name) + ' <span style="font-weight:400;color:#5f6368">· ' + ART_NAME[artVon(m)] + (m.aktiv ? '' : ', inaktiv') + '</span></div>' +
+          var erl = artVon(m) === 'aufgabe' && m.aktiv ? '<button class="pill klein" style="background:#fff" data-a="erledigt1" data-k="' + esc(m.id) + '">' + ico(I_CHECK) + 'Erledigt</button>' : '';
+          return '<div class="mitglied"><div class="mname">' + esc(m.name) + ' <span>· ' + ART_NAME[artVon(m)] + (m.aktiv ? '' : ', inaktiv') + '</span></div>' +
             mitgliedZeilen(m, true) +
-            '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' + erl + '</div></div>';
+            '<div class="aktionen"><button class="pill klein" style="background:#fff" data-a="edit" data-k="' + esc(m.id) + '">' + ico(I_EDIT) + 'Bearbeiten</button>' + erl + '</div></div>';
         }).join('');
     }
   }
-  return '<div class="karte ' + statusKlasse(u) + (u.aktiv ? '' : ' inaktiv') + '" data-key="' + k + '">' +
+  return '<div class="karte' + (u.aktiv ? '' : ' inaktiv') + '" data-key="' + k + '">' +
     '<div class="reihe">' +
-      '<button class="griff" aria-label="Verschieben: ' + esc(u.name) + ' (ziehen oder Pfeiltasten hoch und runter)" title="Ziehen zum Sortieren">⠿</button>' +
+      '<button class="griff" aria-label="Verschieben: ' + esc(u.name) + ' (ziehen oder Pfeiltasten hoch und runter)" title="Ziehen zum Sortieren">' + GRIFF_SVG + '</button>' +
       '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
-        '<span><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span><span class="frist">' + esc(fristZeile(u)) + '</span></span>' + chevron(auf) + '</button>' +
+        '<span class="kt"><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span>' +
+          '<span class="metazeile"><span class="status st-' + info.klasse + '">' + esc(info.status) + '</span><span class="meta">' + esc(info.meta) + '</span></span></span>' +
+        ico(auf ? I_AUF : I_AB, 20, '#6e6875') + '</button>' +
     '</div>' +
-    ((chip || knopf) ? '<div class="zeile2">' + chip + knopf + '</div>' : '<div style="height:4px"></div>') +
+    ((chip || knopf) ? '<div class="zeile2">' + chip + knopf + '</div>' : '') +
     (auf ? '<div class="detail">' + details + '</div>' : '') +
   '</div>';
 }
@@ -704,26 +825,27 @@ function renderListe() {
   var at = alle.filter(function (u) { return !u.rezept; });
   var h1 = rez.length ? rez.map(karteHtml).join('') : (alle.length === 0 ? '<p>Noch keine Einträge. Oben rechts auf "+ Neu".</p>' : '');
   var h2 = at.map(karteHtml).join('');
-  $('kopfRez').style.display = rez.length && at.length ? '' : 'none';
+  $('kopfRez').style.display = rez.length ? '' : 'none';
   $('kopfAT').style.display = at.length ? '' : 'none';
+  $('anzRez').textContent = rez.length;
+  $('anzAT').textContent = at.length;
   if (h1 !== letzteListe) { letzteListe = h1; $('liste').innerHTML = h1; }   // unverändert: DOM nicht anfassen
   if (h2 !== letzteListeAT) { letzteListeAT = h2; $('listeAT').innerHTML = h2; }
 }
 
 // Eingabefelder für Vorlauf/Bündelung nur überschreiben, wenn sich der Wert auf dem Server geändert hat
 // und das Feld nicht gerade bearbeitet wird. So geht Getipptes nicht verloren.
-var einstGesetzt = null;
 function renderEinstellungen() {
   var e = state.einstellungen;
-  if (!(einstGesetzt && einstGesetzt.vorlauf === e.vorlauf && einstGesetzt.buendel === e.buendel)) {
-    if (document.activeElement !== $('vorlauf')) $('vorlauf').value = e.vorlauf;
-    if (document.activeElement !== $('buendel')) $('buendel').value = e.buendel;
-    einstGesetzt = { vorlauf: e.vorlauf, buendel: e.buendel };
-  }
+  $('vorlaufWert').textContent = e.vorlauf;
+  $('buendelWert').textContent = e.buendel;
   var k = state.kalender;
-  $('kalStatus').textContent = k
-    ? (k.verbunden ? 'Kalender „' + k.name + '“ · verbunden · zuletzt abgeglichen um ' + k.um + ' Uhr' : k.status)
-    : '';
+  $('kalName').textContent = k ? (k.name || 'Kalender') : 'Kalender';
+  $('kalStatus').textContent = k ? (k.verbunden ? 'Verbunden · abgeglichen um ' + k.um + ' Uhr' : k.status) : '';
+  $('kalPunkt').style.background = k && k.verbunden ? '#1d6b3f' : '#a1173f';
+}
+function renderKopf() {
+  if (state.heute) $('heuteText').textContent = tagLang(state.heute);
 }
 var letzteGruppen = '';
 function renderGruppen() {
@@ -888,7 +1010,7 @@ function setzeArt(art) {
   });
   $('l_name').textContent = art === 'rezept' ? 'Medikament' : 'Titel';
   $('l_frist').textContent = art === 'rezept' ? 'Fristende' : art === 'aufgabe' ? 'Fällig am' : 'Datum';
-  $('l_text').textContent = art === 'aufgabe' ? 'Mail-Text an das KID (optional)' : 'Text für die Mail an das KID (z. B. "1x 100 Stück ...")';
+  $('l_text').textContent = art === 'aufgabe' ? 'Mail-Text an das KID (optional)' : 'Text für die Mail an das KID (z. B. „1x 100 Stück …“)';
 }
 document.querySelector('#artWahl').addEventListener('click', function (e) {
   var b = e.target.closest('button[data-art]');
@@ -910,7 +1032,7 @@ function fuelle(m) {
   $('f_bis').value = m.bis || '';
   $('f_ort').value = m.ort || '';
   var vb = m.vorbereitung;
-  $('f_vb_aktiv').checked = vb ? !!vb.aktiv : false;
+  $('f_vb_aktiv').checked = vb ? !!vb.aktiv : !m.id;   // bei neuen Terminen standardmäßig an
   $('f_vb_titel').value = vb ? vb.titel : 'Überweisung einholen';
   $('f_vb_tage').value = vb ? vb.tage : 14;
   $('f_vb_text').value = vb ? vb.text : '';
@@ -921,7 +1043,7 @@ function fuelle(m) {
   $('overlay').style.display = 'block';
 }
 function neu() {
-  $('formTitel').textContent = 'Neu';
+  $('formTitel').textContent = 'Neuer Eintrag';
   $('btnLoeschen').style.display = 'none';
   $('artWahl').style.display = '';
   fuelle({});
@@ -1113,25 +1235,47 @@ function kalenderAbgleich() {
   }).catch(fehler);
 }
 
-function speichereEinst() {
-  var v = Number($('vorlauf').value), b = Number($('buendel').value);
-  if (isNaN(v) || isNaN(b) || v < 0 || b < 0 || $('vorlauf').value === '' || $('buendel').value === '') {
-    meldung('Bitte gültige Zahlen eingeben.', true); return;
-  }
+var einstTimer = null;
+function aendereEinst(feld, delta) {
+  var basis = einstOverlay || state.einstellungen;
+  var e = { vorlauf: basis.vorlauf, buendel: basis.buendel };
+  e[feld] = Math.max(0, Math.min(365, Number(e[feld]) + delta));
   var stamp = ++optimisticCounter;
-  einstOverlay = { vorlauf: v, buendel: b, stamp: stamp };
-  einstGesetzt = { vorlauf: v, buendel: b };
+  einstOverlay = { vorlauf: e.vorlauf, buendel: e.buendel, stamp: stamp };
   applyEinst();
   render();
-  meldung('Einstellungen gespeichert');
-  call('einstellungen', { vorlauf: v, buendel: b }).then(function (s) {
+  clearTimeout(einstTimer);
+  einstTimer = setTimeout(function () { einstTimer = null; sendeEinst(stamp); }, 700);
+}
+function sendeEinst(stamp) {
+  var e = einstOverlay;
+  if (!e) return;
+  call('einstellungen', { vorlauf: e.vorlauf, buendel: e.buendel }).then(function (s) {
     if (einstOverlay && einstOverlay.stamp === stamp) einstOverlay = null;
     setState(s);
-  }).catch(function (e) {
+    meldung('Gespeichert');
+  }).catch(function (err) {
     if (einstOverlay && einstOverlay.stamp === stamp) einstOverlay = null;
-    fehler(e); neuLaden();
+    fehler(err); neuLaden();
   });
 }
+
+/* ---- Seiten: Übersicht und Einstellungen. Die Zurück-Taste des Handys führt zur Übersicht. ---- */
+function zeigeSeite(name, ausVerlauf) {
+  var einst = name === 'einst';
+  $('ansichtStart').style.display = einst ? 'none' : '';
+  $('ansichtEinst').style.display = einst ? '' : 'none';
+  if (einst && !ausVerlauf) { try { history.pushState({ seite: 'einst' }, ''); } catch (e) {} }
+  window.scrollTo(0, 0);
+}
+function zurueck() {
+  if (history.state && history.state.seite === 'einst') history.back(); else zeigeSeite('start');
+}
+window.addEventListener('popstate', function () {
+  zeigeSeite(history.state && history.state.seite === 'einst' ? 'einst' : 'start', true);
+});
+// Tipp auf den abgedunkelten Rand schließt das Formular
+$('overlay').addEventListener('click', function (e) { if (e.target === $('overlay')) schliesse(); });
 
 function testmail() {
   meldung('Testmail wird gesendet …');
@@ -1155,7 +1299,7 @@ function planeAktualisierung() {
 }
 
 function stoert() {
-  return document.hidden || pendingMutations > 0 || dragAktiv || tastaturTimer || formularOffen();
+  return document.hidden || pendingMutations > 0 || dragAktiv || tastaturTimer || einstTimer || formularOffen();
 }
 
 function fuehreAktualisierungAus() {
