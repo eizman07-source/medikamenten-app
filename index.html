@@ -146,6 +146,10 @@
     background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .15s; }
   input.schalter:checked { background: var(--acc); }
   input.schalter:checked::after { left: 23px; }
+  .personen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .person { height: 40px; padding: 0 14px; border-radius: 999px; background: #fff; color: var(--ink); font-size: 14px; font-weight: 600;
+    border: 1px solid var(--linie); display: inline-flex; align-items: center; gap: 6px; }
+  .person[aria-pressed="true"] { background: var(--past); border-color: var(--past); color: var(--past-t); }
   .vb { margin-top: 18px; padding: 14px 16px; background: var(--flaeche); border-radius: 16px; }
   .vb .schalterzeile { margin-top: 0; }
   .vb input[type=text], .vb input[type=number], .vb textarea { background: #fff; }
@@ -244,6 +248,13 @@
     <div><label for="f_bis">Bis</label><input type="time" id="f_bis"></div>
   </div>
   <div data-for="termin"><label for="f_ort">Ort</label><input type="text" id="f_ort"></div>
+  <div data-for="termin" class="vb" id="einladungen">
+    <div class="schalterzeile"><label for="f_familie">Auch im Familienkalender<div class="eu" id="familieName">Familie</div></label><input type="checkbox" class="schalter" id="f_familie"></div>
+    <label style="margin-top:16px">Personen einladen</label>
+    <div class="personen" id="personenChips"></div>
+    <label for="f_gaeste_extra">Weitere E-Mail-Adressen (mit Komma getrennt)</label><input type="text" id="f_gaeste_extra" inputmode="email" autocomplete="off" autocapitalize="off">
+    <p class="info" style="margin:10px 0 0">Google verschickt die Einladungen. Die Eingeladenen sehen den Termin in ihrem eigenen Kalender.</p>
+  </div>
   <div data-for="termin" class="vb">
     <div class="schalterzeile"><label for="f_vb_aktiv">Aufgabe vor dem Termin<div class="eu">Wird automatisch angelegt</div></label><input type="checkbox" class="schalter" id="f_vb_aktiv"></div>
     <div class="zeile">
@@ -842,6 +853,8 @@ function mitgliedZeilen(m, mitDatum) {
   } else {
     if (mitDatum && m.frist) z += wert('Wann', tagTitel(m.frist) + (m.von ? ', ' + m.von + (m.bis ? ' bis ' + m.bis : '') : ''));
     z += m.ort ? wert('Ort', m.ort) : '';
+    z += m.familie ? wert('Kalender', 'Bastian und ' + (state.familienName || 'Familie')) : '';
+    z += m.gaeste && m.gaeste.length ? wert('Eingeladen', m.gaeste.map(personName).join(', ')) : '';
   }
   return z + (m.notiz ? wert('Notiz', m.notiz) : '');
 }
@@ -1116,6 +1129,43 @@ document.querySelector('#artWahl').addEventListener('click', function (e) {
   if (b) setzeArt(b.getAttribute('data-art'));
 });
 
+/* ---- Einladungen ---- */
+function zeichnePersonen(gaeste) {
+  var personen = state.personen || [];
+  var gewaehlt = (gaeste || []).map(function (g) { return g.toLowerCase(); });
+  var bekannt = personen.map(function (p) { return p.email.toLowerCase(); });
+  $('personenChips').innerHTML = personen.map(function (p) {
+    var an = gewaehlt.indexOf(p.email.toLowerCase()) >= 0;
+    return '<button type="button" class="person" data-email="' + esc(p.email) + '" aria-pressed="' + an + '">' + esc(p.name) + '</button>';
+  }).join('') || '<span class="info">Keine Personen hinterlegt.</span>';
+  // Adressen, die nicht in der Liste stehen, kommen ins freie Feld
+  $('f_gaeste_extra').value = gewaehlt.filter(function (g) { return bekannt.indexOf(g) < 0; }).join(', ');
+}
+$('personenChips').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('.person') : null;
+  if (!b) return;
+  b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+});
+// Liefert die gewählten Adressen oder wirft einen Fehler bei ungültiger Eingabe
+function leseGaeste() {
+  var liste = [];
+  Array.prototype.forEach.call($('personenChips').querySelectorAll('.person'), function (b) {
+    if (b.getAttribute('aria-pressed') === 'true') liste.push(b.getAttribute('data-email'));
+  });
+  $('f_gaeste_extra').value.split(/[,;\s]+/).forEach(function (t) { if (t.trim()) liste.push(t.trim()); });
+  var aus = [];
+  liste.forEach(function (t) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) throw new Error('Ungültige E-Mail-Adresse: ' + t);
+    var k = t.toLowerCase();
+    if (aus.indexOf(k) < 0) aus.push(k);
+  });
+  return aus;
+}
+function personName(email) {
+  var p = (state.personen || []).filter(function (x) { return x.email.toLowerCase() === email.toLowerCase(); })[0];
+  return p ? p.name : email;
+}
+
 function fuelle(m) {
   var art = artVon(m);
   $('f_id').value = m.id || '';
@@ -1137,6 +1187,9 @@ function fuelle(m) {
   $('f_vb_text').value = vb ? vb.text : '';
   $('f_foto').checked = !!m.foto;
   $('f_behandlung').checked = !!m.behandlung;
+  $('f_familie').checked = !!m.familie;
+  $('familieName').textContent = state.familienName || 'Familie';
+  zeichnePersonen(m.gaeste || []);
   $('f_aktiv').checked = m.aktiv !== false;
   $('f_notiz').value = m.notiz || '';
   setzeArt(art);
@@ -1193,6 +1246,10 @@ function speichere() {
            tage: Number($('f_vb_tage').value) || 0, text: $('f_vb_text').value.trim() };
     m.vorbereitung = vb;
   }
+  if (art === 'termin') {
+    try { m.gaeste = leseGaeste(); } catch (err) { meldung(err.message, true); return; }
+    m.familie = $('f_familie').checked;
+  } else { m.gaeste = []; m.familie = false; }
   if (!m.name) { meldung('Name fehlt.', true); return; }
   if (art === 'rezept' && !m.text) { meldung('Text für die Mail fehlt.', true); return; }
   if (art !== 'rezept' && !m.frist) { meldung(art === 'termin' ? 'Datum fehlt.' : 'Fälligkeitsdatum fehlt.', true); return; }
@@ -1243,7 +1300,7 @@ function speichere() {
 
 function loesche() {
   var m = finde($('f_id').value);
-  if (!m || !confirm('"' + m.name + '" wirklich löschen?' + (artVon(m) === 'termin' ? ' Der Eintrag im Google Kalender und die zugehörige Aufgabe werden ebenfalls gelöscht.' : ''))) return;
+  if (!m || !confirm('"' + m.name + '" wirklich löschen?' + (artVon(m) === 'termin' ? ' Die Einträge im Google Kalender (auch im Familienkalender), eventuelle Einladungen und die zugehörige Aufgabe werden ebenfalls entfernt.' : ''))) return;
   var ids = [m.id];
   if (artVon(m) === 'termin' && finde('v-' + m.id)) ids.push('v-' + m.id);
   ids.forEach(function (i) { geloescht[i] = true; });
