@@ -96,6 +96,11 @@
 
   /* Kalender */
   .kalkarte { background: #fff; border: 1px solid var(--linie); border-radius: 20px; padding: 16px 12px 14px; }
+  .sync { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; background: var(--flaeche); color: var(--grau); }
+  .sync::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+  .sync.ok { background: #e1f5ea; color: #1d6b3f; }
+  .sync.fehler { background: #fde4ec; color: #a1173f; }
   .tagesliste { margin: 8px 4px 0; padding-top: 12px; border-top: 1px solid var(--linie); }
   .tagesliste .tk { font-size: 13px; font-weight: 700; }
   .tagesliste .te { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 15px; }
@@ -504,7 +509,7 @@ function laden(versuche) {
     planeAktualisierung();
   }).catch(function (e) {
     if (n > 0 && !/Zugangsschl|Zugang einrichten/.test(e.message)) { setTimeout(function () { laden(n - 1); }, 900); return; }
-    if (vorlaeufig) { vorlaeufig = 'offline'; renderKopf(); } else $('liste').textContent = 'Daten konnten nicht geladen werden.';
+    if (vorlaeufig) { vorlaeufig = 'offline'; renderKopf(); renderKalender(); } else $('liste').textContent = 'Daten konnten nicht geladen werden.';
     fehler(e);
     if (/Zugangsschl/.test(e.message)) zeigeZugang();
   });
@@ -724,7 +729,14 @@ function renderKalender() {
     b.lane = l;
   });
 
-  var kopf = '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 12px">' +
+  // Kleine Statusanzeige oben rechts: grün = mit Google Kalender synchronisiert, rot = nicht, grau = wird gerade abgeglichen
+  var kal = state.kalender;
+  var laedt = vorlaeufig === true || !kal || kal.geladen === false;
+  var syncKlasse = laedt ? '' : (kal.verbunden && vorlaeufig !== 'offline' ? ' ok' : ' fehler');
+  var syncText = laedt ? 'Gleicht ab …' : (kal.verbunden && vorlaeufig !== 'offline' ? 'Synchronisiert' + (kal.um ? ' · ' + esc(kal.um) : '') : 'Nicht synchronisiert');
+  var syncTitel = laedt ? 'Der Google Kalender wird gerade abgeglichen' : (kal.verbunden ? 'Mit dem Google Kalender synchronisiert. Tippen zum erneuten Abgleich.' : 'Tippen für den Grund und zum erneuten Abgleich');
+  var syncZeile = '<div style="display:flex;justify-content:flex-end;padding:0 4px 8px"><button class="sync' + syncKlasse + '" data-a="sync" title="' + syncTitel + '" aria-label="' + syncTitel + '">' + syncText + '</button></div>';
+  var kopf = syncZeile + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 12px">' +
     '<h2 style="margin:0;font-size:22px;font-weight:300">' + MONATE[kalender.monat] + ' ' + kalender.jahr + '</h2>' +
     '<div style="display:flex;gap:8px"><button class="rund klein" aria-label="Vorheriger Monat" onclick="kalenderMonat(-1)">' + ico(I_LEFT, 20) + '</button>' +
     '<button class="rund klein" aria-label="Nächster Monat" onclick="kalenderMonat(1)">' + ico(I_RIGHT, 20) + '</button></div></div>';
@@ -793,6 +805,14 @@ function renderKalender() {
 }
 
 $('kalender').addEventListener('click', function (e) {
+  var sy = e.target.closest ? e.target.closest('[data-a="sync"]') : null;
+  if (sy) {
+    var k = state.kalender;
+    // Bei rotem Status zuerst den Grund zeigen, dann neu abgleichen
+    if (k && k.geladen !== false && !k.verbunden && k.status) meldung(k.status, true);
+    kalenderAbgleich();
+    return;
+  }
   var z = e.target.closest ? e.target.closest('[data-a="tag"]') : null;
   if (!z) return;
   kalender.tag = z.getAttribute('data-d');
@@ -1313,11 +1333,12 @@ function kalenderAbgleich() {
   kalenderLaedt = true;
   state.kalender = Object.assign({}, state.kalender || {}, { geladen: false });
   renderEinstellungen();
+  renderKalender();
   rawCall('kalender').then(function (k) {
     kalenderLaedt = false;
     uebernimmKalender(k);
     var ok = k && k.kalender && k.kalender.verbunden;
-    meldung(ok ? 'Kalender abgeglichen' : 'Kalender nicht erreichbar', !ok);
+    meldung(ok ? 'Kalender abgeglichen' : (k && k.kalender && k.kalender.status ? k.kalender.status : 'Kalender nicht erreichbar'), !ok);
   }).catch(function (e) { kalenderLaedt = false; fehler(e); });
 }
 
