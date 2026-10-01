@@ -15,15 +15,33 @@
   button.sek { background: #e3e6ea; color: #1c1e21; }
   button.gefahr { background: #b3261e; }
   button:disabled { opacity: .5; }
-  .karte { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px; border-left: 6px solid #9aa0a6; }
+  .karte { background: #fff; border-radius: 10px; margin-bottom: 10px; border-left: 6px solid #9aa0a6; position: relative; }
   .karte.rot { border-left-color: #b3261e; }
   .karte.orange { border-left-color: #e08a00; }
   .karte.gruen { border-left-color: #2e7d32; }
-  .karte.inaktiv { opacity: .55; }
-  .name { font-weight: 600; font-size: 16px; }
-  .frist { font-size: 14px; margin: 2px 0 6px; }
-  .info { font-size: 13px; color: #5f6368; margin: 2px 0; white-space: pre-wrap; }
-  .aktionen { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .kopf { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
+    background: none; color: inherit; border: 0; border-radius: 0; padding: 12px 12px 8px; min-height: 44px; }
+  .inaktiv .kopf { opacity: .55; }
+  .name { display: block; font-weight: 600; font-size: 16px; }
+  .frist { display: block; font-size: 14px; margin-top: 2px; }
+  .zeile2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px; }
+  .zeile2 .neu { margin-left: auto; }
+  .chipwrap { position: relative; display: inline-block; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 10px; min-height: 36px;
+    border: 1px solid #c4c7cc; border-radius: 18px; background: #fff; color: #1c1e21; }
+  .pop { display: none; position: absolute; left: 0; top: calc(100% + 4px); z-index: 20; width: max-content; max-width: 260px;
+    background: #1c1e21; color: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    font-size: 13px; white-space: pre-wrap; }
+  .pop .pl { font-size: 12px; color: #c9ccd1; margin-bottom: 2px; }
+  .chipwrap.an .pop { display: block; }
+  @media (hover: hover) { .chipwrap:hover .pop { display: block; } }
+  .detail { padding: 0 12px 12px; border-top: 1px solid #eceef1; }
+  .wert { margin-top: 10px; }
+  .wert .l { font-size: 12px; color: #5f6368; }
+  .wert .v { font-size: 14px; margin-top: 1px; white-space: pre-wrap; }
+  .mitglied { background: #f4f5f7; border-radius: 8px; padding: 10px; margin-top: 10px; }
+  .mitglied .mname { font-weight: 600; font-size: 14px; }
+  .aktionen { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
   .box { background: #fff; border-radius: 10px; padding: 12px; margin-top: 16px; }
   .box h2 { font-size: 15px; margin: 0 0 8px; }
   label { display: block; font-size: 13px; margin: 10px 0 3px; color: #444; }
@@ -49,6 +67,7 @@
   </div>
 </header>
 <main>
+  <div id="kalender" class="box" style="margin-top:0;margin-bottom:14px;display:none"></div>
   <div id="liste">Lädt …</div>
 
   <div class="box">
@@ -68,12 +87,14 @@
   <h2 id="formTitel" style="margin-top:0"></h2>
   <input type="hidden" id="f_id">
   <label for="f_name">Medikament</label><input type="text" id="f_name">
+  <label for="f_gruppe">Gruppe (optional, z. B. "Slenyto")</label><input type="text" id="f_gruppe" list="gruppen" autocomplete="off"><datalist id="gruppen"></datalist>
   <label for="f_dosierung">Dosierung</label><textarea id="f_dosierung"></textarea>
   <label for="f_text">Text für die Mail an das KID (z. B. "1x 100 Stück ...")</label><textarea id="f_text"></textarea>
   <div class="zeile">
+    <div><label for="f_beginn">Beginn</label><input type="date" id="f_beginn"></div>
     <div><label for="f_frist">Fristende</label><input type="date" id="f_frist"></div>
-    <div><label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1"></div>
   </div>
+  <label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1">
   <div class="check"><input type="checkbox" id="f_foto"><label for="f_foto" style="margin:0">Foto aus Drive anhängen</label></div>
   <div class="check"><input type="checkbox" id="f_aktiv"><label for="f_aktiv" style="margin:0">Aktiv (Erinnerung an)</label></div>
   <label for="f_notiz">Notiz</label><textarea id="f_notiz"></textarea>
@@ -99,6 +120,8 @@
 
 <script>
 var state = { medikamente: [], einstellungen: { vorlauf: 7, buendel: 14 }, heute: '' };
+var offen = {};      // aufgeklappte Karten (Schlüssel)
+var popAn = null;    // Karte, deren Dosierungs-Feld angeheftet ist
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, function (c) {
@@ -163,6 +186,9 @@ function laden() {
     state = d;
     $('vorlauf').value = d.einstellungen.vorlauf;
     $('buendel').value = d.einstellungen.buendel;
+    var gr = {};
+    d.medikamente.forEach(function (m) { if (m.gruppe) gr[m.gruppe] = true; });
+    $('gruppen').innerHTML = Object.keys(gr).map(function (g) { return '<option value="' + esc(g) + '"></option>'; }).join('');
     render();
   }).catch(function (e) {
     $('liste').textContent = 'Daten konnten nicht geladen werden.';
@@ -171,54 +197,237 @@ function laden() {
   });
 }
 
+/* ---- Datum ---- */
+function tagNr(s) {
+  var a = s.split('-').map(Number);
+  return Math.round(Date.UTC(a[0], a[1] - 1, a[2]) / 86400000);
+}
 function tageBis(frist) {
-  if (!frist) return null;
-  var a = frist.split('-').map(Number), b = state.heute.split('-').map(Number);
-  return Math.round((new Date(a[0], a[1] - 1, a[2]) - new Date(b[0], b[1] - 1, b[2])) / 86400000);
+  return frist ? tagNr(frist) - tagNr(state.heute) : null;
 }
 function datumDe(frist) {
   var a = frist.split('-');
   return a[2] + '.' + a[1] + '.' + a[0];
 }
 
+/* ---- Einheiten: Gruppen zusammenfassen ---- */
+function einheiten() {
+  var map = {}, liste = [];
+  state.medikamente.forEach(function (m) {
+    var key = m.gruppe ? 'g:' + m.gruppe : 'i:' + m.id;
+    if (!map[key]) { map[key] = { key: key, name: m.gruppe || m.name, mitglieder: [], gruppe: !!m.gruppe }; liste.push(map[key]); }
+    map[key].mitglieder.push(m);
+  });
+  liste.forEach(function (u) {
+    var aktive = u.mitglieder.filter(function (m) { return m.aktiv; });
+    u.aktiv = aktive.length > 0;
+    var basis = u.aktiv ? aktive : u.mitglieder;
+    var fristen = basis.filter(function (m) { return m.frist; }).map(function (m) { return m.frist; }).sort();
+    u.frist = fristen.length ? fristen[0] : '';
+    var beginne = basis.filter(function (m) { return m.beginn; }).map(function (m) { return m.beginn; }).sort();
+    u.beginn = beginne.length ? beginne[0] : '';
+    var dosen = [];
+    basis.forEach(function (m) { if (m.dosierung && dosen.indexOf(m.dosierung) < 0) dosen.push(m.dosierung); });
+    if (dosen.length <= 1) u.dosis = dosen[0] || '';
+    else u.dosis = basis.filter(function (m) { return m.dosierung; }).map(function (m) { return m.name + ': ' + m.dosierung; }).join('\n');
+    u.aktiveIds = basis.map(function (m) { return m.id; });
+  });
+  return liste;
+}
+function statusKlasse(u) {
+  var d = tageBis(u.frist);
+  if (d === null) return '';
+  return d < 0 ? 'rot' : d <= state.einstellungen.vorlauf + state.einstellungen.buendel ? 'orange' : 'gruen';
+}
+
+/* ---- Kalender ---- */
+var kalender = { jahr: null, monat: null };
+var MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+var FARBEN = {
+  rot: ['#e8a09b', '#4a0e0b'],
+  orange: ['#f4b860', '#3d2800'],
+  gruen: ['#9fd3a2', '#123514']
+};
+var MAX_LANES = 2;
+var ZEILE_H = 66;
+
+function kalenderMonat(delta) {
+  var d = new Date(Date.UTC(kalender.jahr, kalender.monat + delta, 1));
+  kalender.jahr = d.getUTCFullYear();
+  kalender.monat = d.getUTCMonth();
+  renderKalender();
+}
+
+function renderKalender() {
+  var box = $('kalender');
+  if (!state.heute) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  if (kalender.jahr === null) {
+    var t = state.heute.split('-').map(Number);
+    kalender.jahr = t[0]; kalender.monat = t[1] - 1;
+  }
+  var heuteNr = tagNr(state.heute);
+  var ersterNr = Math.round(Date.UTC(kalender.jahr, kalender.monat, 1) / 86400000);
+  var tageImMonat = new Date(Date.UTC(kalender.jahr, kalender.monat + 1, 0)).getUTCDate();
+  var versatz = (new Date(ersterNr * 86400000).getUTCDay() + 6) % 7; // Montag = 0
+  var wochen = Math.ceil((versatz + tageImMonat) / 7);
+  var startNr = ersterNr - versatz;
+  var endeNr = startNr + wochen * 7 - 1;
+  var einst = state.einstellungen;
+
+  // Ein Balken je Einheit (Gruppe oder Einzelmedikament): Beginn bis frühestes Fristende
+  var balken = einheiten().filter(function (u) {
+    return u.aktiv && u.beginn && u.frist && tagNr(u.frist) >= tagNr(u.beginn);
+  }).map(function (u) {
+    var von = tagNr(u.beginn), bis = tagNr(u.frist);
+    return { name: u.name, von: von, bis: bis, erinn: bis - einst.vorlauf, farbe: FARBEN[statusKlasse(u)] || FARBEN.gruen, lane: -1 };
+  }).filter(function (b) { return b.bis >= startNr && b.von <= endeNr; })
+    .sort(function (a, b) { return a.von - b.von || a.name.localeCompare(b.name); });
+
+  // Bahnen im sichtbaren Bereich einmal fest vergeben, damit ein Balken über alle Wochen auf derselben Höhe bleibt
+  var bahnEnde = [];
+  balken.forEach(function (b) {
+    var l = 0;
+    while (l < bahnEnde.length && bahnEnde[l] >= b.von) l++;
+    bahnEnde[l] = b.bis;
+    b.lane = l;
+  });
+
+  var kopf = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+    '<button class="sek" aria-label="Vorheriger Monat" onclick="kalenderMonat(-1)" style="width:40px;height:36px;font-size:18px;padding:0">‹</button>' +
+    '<h2 style="font-size:16px;margin:0">' + MONATE[kalender.monat] + ' ' + kalender.jahr + '</h2>' +
+    '<button class="sek" aria-label="Nächster Monat" onclick="kalenderMonat(1)" style="width:40px;height:36px;font-size:18px;padding:0">›</button></div>';
+  var tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(function (n) {
+    return '<div style="flex:1;text-align:center;font-size:12px;color:#5f6368;padding:4px 0">' + n + '</div>';
+  }).join('');
+
+  var zeilen = '';
+  for (var w = 0; w < wochen; w++) {
+    var wStart = startNr + w * 7, wEnde = wStart + 6;
+    var zellen = '';
+    for (var c = 0; c < 7; c++) {
+      var nr = wStart + c, dd = new Date(nr * 86400000);
+      var imMonat = dd.getUTCMonth() === kalender.monat;
+      var num = nr === heuteNr
+        ? '<span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:#1f4e79;color:#fff;font-size:12px">' + dd.getUTCDate() + '</span>'
+        : '<span style="font-size:12px;color:' + (imMonat ? '#1c1e21' : '#6b7077') + '">' + dd.getUTCDate() + '</span>';
+      zellen += '<div style="flex:1;padding:2px 3px;border-right:1px solid #eceef1;box-sizing:border-box">' + num + '</div>';
+    }
+    var innen = '', ueberlauf = 0;
+    balken.forEach(function (b) {
+      if (b.bis < wStart || b.von > wEnde) return;
+      if (b.lane >= MAX_LANES) { ueberlauf++; return; }
+      var c0 = Math.max(b.von, wStart) - wStart, c1 = Math.min(b.bis, wEnde) - wStart;
+      var lo = b.von < wStart, ro = b.bis > wEnde;
+      var rl = lo ? '0' : '9px', rr = ro ? '0' : '9px';
+      innen += '<div style="position:absolute;left:calc(' + (c0 / 7 * 100) + '% + 1px);width:calc(' + ((c1 - c0 + 1) / 7 * 100) + '% - 2px);top:' + (24 + b.lane * 20) +
+        'px;height:18px;box-sizing:border-box;padding:0 6px;background:' + b.farbe[0] + ';color:' + b.farbe[1] +
+        ';font-size:11px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:' + rl + ' ' + rr + ' ' + rr + ' ' + rl + '">' + esc(b.name) + '</div>';
+      if (b.erinn >= Math.max(b.von, wStart) && b.erinn <= Math.min(b.bis, wEnde)) {
+        innen += '<div style="position:absolute;left:calc(' + ((b.erinn - wStart + 0.5) / 7 * 100) + '% - 4px);top:' + (24 + b.lane * 20 + 5) +
+          'px;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:#fff;border:2px solid ' + b.farbe[1] + '"></div>';
+      }
+    });
+    if (ueberlauf > 0) {
+      innen += '<div style="position:absolute;right:3px;top:3px;font-size:11px;color:#5f6368">+' + ueberlauf + '</div>';
+    }
+    zeilen += '<div style="position:relative;height:' + ZEILE_H + 'px;border-top:1px solid #e3e6ea;display:flex">' + zellen +
+      '<div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none">' + innen + '</div></div>';
+  }
+  var legende = '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#5f6368">' +
+    '<span style="display:inline-block;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:#fff;border:2px solid #3d2800"></span>' +
+    'Erinnerungstag · Balkenende = Fristende</div>';
+  box.innerHTML = kopf + '<div style="display:flex">' + tage + '</div><div style="border-bottom:1px solid #e3e6ea">' + zeilen + '</div>' + legende;
+}
+
+/* ---- Liste ---- */
+var INFO_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#5f6368" stroke-width="1.5"></circle><path d="M8 7.2v3.6" stroke="#5f6368" stroke-width="1.5" stroke-linecap="round"></path><circle cx="8" cy="4.9" r="0.9" fill="#5f6368"></circle></svg>';
+function chevron(auf) {
+  return '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="flex:none"><path d="' + (auf ? 'M5 12l5-5 5 5' : 'M5 8l5 5 5-5') +
+    '" fill="none" stroke="#5f6368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+}
+function wert(label, text) {
+  return '<div class="wert"><div class="l">' + label + '</div><div class="v">' + esc(text) + '</div></div>';
+}
+function mitgliedDetails(m) {
+  return (m.text ? wert('Mail-Text', m.text) : '') + (m.foto ? wert('Foto', 'wird angehängt') : '') + (m.notiz ? wert('Notiz', m.notiz) : '');
+}
+
 function render() {
-  var liste = state.medikamente.slice().sort(function (x, y) {
+  renderKalender();
+  renderListe();
+}
+
+function renderListe() {
+  var liste = einheiten().sort(function (x, y) {
     if (!x.frist && !y.frist) return x.name.localeCompare(y.name);
     if (!x.frist) return 1;
     if (!y.frist) return -1;
     return x.frist < y.frist ? -1 : x.frist > y.frist ? 1 : 0;
   });
   if (liste.length === 0) { $('liste').innerHTML = '<p>Noch keine Einträge. Oben rechts auf "+ Neu".</p>'; return; }
-  $('liste').innerHTML = liste.map(function (m) {
-    var d = tageBis(m.frist), klasse = '', text = 'keine Frist hinterlegt';
+  $('liste').innerHTML = liste.map(function (u) {
+    var d = tageBis(u.frist), text = 'keine Frist hinterlegt';
     if (d !== null) {
-      text = 'Frist ' + datumDe(m.frist) + ' · ' +
-        (d < 0 ? 'seit ' + (-d) + ' Tagen abgelaufen' : d === 0 ? 'heute' : 'in ' + d + ' Tagen');
-      klasse = d < 0 ? 'rot' : d <= state.einstellungen.vorlauf + state.einstellungen.buendel ? 'orange' : 'gruen';
+      text = 'Frist ' + datumDe(u.frist) + ' · ' + (d < 0 ? 'seit ' + (-d) + ' Tagen abgelaufen' : d === 0 ? 'heute' : 'in ' + d + ' Tagen');
     }
-    return '<div class="karte ' + klasse + (m.aktiv ? '' : ' inaktiv') + '">' +
-      '<div class="name">' + esc(m.name) + (m.aktiv ? '' : ' (inaktiv)') + '</div>' +
-      '<div class="frist">' + esc(text) + '</div>' +
-      (m.dosierung ? '<div class="info">Dosierung: ' + esc(m.dosierung) + '</div>' : '') +
-      '<div class="info">Mail-Text: ' + esc(m.text) + '</div>' +
-      (m.foto ? '<div class="info">Foto wird angehängt</div>' : '') +
-      (m.notiz ? '<div class="info">' + esc(m.notiz) + '</div>' : '') +
-      '<div class="aktionen">' +
-        '<button onclick="bearbeite(\'' + esc(m.id) + '\')">Bearbeiten</button>' +
-        '<button class="sek" onclick="lieferung(\'' + esc(m.id) + '\')">Neue Lieferung erhalten</button>' +
-      '</div></div>';
+    var auf = !!offen[u.key], k = esc(u.key);
+    var chip = '';
+    if (u.dosis) {
+      chip = '<span class="chipwrap' + (popAn === u.key ? ' an' : '') + '">' +
+        '<button class="chip" data-a="pop" data-k="' + k + '" aria-expanded="' + (popAn === u.key) + '">' + INFO_SVG + 'Dosierung</button>' +
+        '<div class="pop"><div class="pl">Dosierung</div>' + esc(u.dosis) + '</div></span>';
+    }
+    var details = '';
+    if (auf) {
+      if (!u.gruppe) {
+        var m = u.mitglieder[0];
+        details = mitgliedDetails(m) +
+          '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' +
+          '<button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>';
+      } else {
+        details = '<div class="aktionen"><button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>' +
+          u.mitglieder.map(function (m) {
+            return '<div class="mitglied"><div class="mname">' + esc(m.name) + (m.aktiv ? '' : ' (inaktiv)') + '</div>' + mitgliedDetails(m) +
+              '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button></div></div>';
+          }).join('');
+      }
+    }
+    return '<div class="karte ' + statusKlasse(u) + (u.aktiv ? '' : ' inaktiv') + '">' +
+      '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
+        '<span><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span><span class="frist">' + esc(text) + '</span></span>' + chevron(auf) + '</button>' +
+      '<div class="zeile2">' + chip + '<button class="neu" data-a="lieferung" data-k="' + k + '">Neue Lieferung erhalten</button></div>' +
+      (auf ? '<div class="detail">' + details + '</div>' : '') +
+    '</div>';
   }).join('');
 }
 
+function findeEinheit(key) {
+  return einheiten().filter(function (u) { return u.key === key; })[0];
+}
+
+$('liste').addEventListener('click', function (e) {
+  var b = e.target.closest('[data-a]');
+  if (!b) return;
+  var a = b.getAttribute('data-a'), k = b.getAttribute('data-k');
+  if (a === 'toggle') { offen[k] = !offen[k]; renderListe(); }
+  else if (a === 'pop') { popAn = popAn === k ? null : k; renderListe(); }
+  else if (a === 'edit') { bearbeite(k); }
+  else if (a === 'lieferung') { lieferung(k); }
+  else if (a === 'mail') { einzelmail(k); }
+});
+
+/* ---- Formular ---- */
 function finde(id) {
   return state.medikamente.filter(function (m) { return m.id === id; })[0];
 }
-
 function fuelle(m) {
   $('f_id').value = m.id || '';
   $('f_name').value = m.name || '';
+  $('f_gruppe').value = m.gruppe || '';
   $('f_dosierung').value = m.dosierung || '';
   $('f_text').value = m.text || '';
+  $('f_beginn').value = m.beginn || '';
   $('f_frist').value = m.frist || '';
   $('f_reichweite').value = m.reichweite === undefined ? '' : m.reichweite;
   $('f_foto').checked = !!m.foto;
@@ -242,8 +451,10 @@ function speichere() {
   var m = {
     id: $('f_id').value,
     name: $('f_name').value,
+    gruppe: $('f_gruppe').value,
     dosierung: $('f_dosierung').value,
     text: $('f_text').value,
+    beginn: $('f_beginn').value,
     frist: $('f_frist').value,
     reichweite: $('f_reichweite').value,
     foto: $('f_foto').checked,
@@ -267,12 +478,30 @@ function loesche() {
   }).catch(fehler);
 }
 
-function lieferung(id) {
-  var m = finde(id);
-  if (!m.reichweite) { meldung('Bitte zuerst eine Reichweite (Tage) hinterlegen.', true); return; }
-  if (!confirm('Neue Lieferung für "' + m.name + '": Fristende auf heute + ' + m.reichweite + ' Tage setzen?')) return;
-  api('lieferung', { id: id }).then(function (neu) {
+/* ---- Aktionen je Einheit (Einzelmedikament oder Gruppe) ---- */
+function lieferung(key) {
+  var u = findeEinheit(key);
+  var ms = u.mitglieder.filter(function (m) { return u.aktiveIds.indexOf(m.id) >= 0; });
+  var ohne = ms.filter(function (m) { return !m.reichweite; });
+  if (ohne.length) {
+    meldung('Bitte zuerst eine Reichweite (Tage) hinterlegen: ' + ohne.map(function (m) { return m.name; }).join(', '), true);
+    return;
+  }
+  var frage = u.gruppe
+    ? 'Neue Lieferung für "' + u.name + '" (' + ms.map(function (m) { return m.name; }).join(', ') + '): Beginn auf heute, Fristende je Medikament auf heute + Reichweite setzen?'
+    : 'Neue Lieferung für "' + u.name + '": Beginn auf heute und Fristende auf heute + ' + ms[0].reichweite + ' Tage setzen?';
+  if (!confirm(frage)) return;
+  api('lieferung', { ids: ms.map(function (m) { return m.id; }) }).then(function (neu) {
     meldung('Neues Fristende: ' + datumDe(neu)); laden();
+  }).catch(fehler);
+}
+
+function einzelmail(key) {
+  var u = findeEinheit(key);
+  if (!confirm('Mail für "' + u.name + '" jetzt an deine Outlook-Adresse senden?')) return;
+  meldung('Mail wird gesendet …');
+  api('einzelmail', { ids: u.aktiveIds }).then(function () {
+    meldung('Mail für "' + u.name + '" gesendet');
   }).catch(fehler);
 }
 
