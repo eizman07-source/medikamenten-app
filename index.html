@@ -52,6 +52,17 @@
   .mitglied { background: #f4f5f7; border-radius: 8px; padding: 10px; margin-top: 10px; }
   .mitglied .mname { font-weight: 600; font-size: 14px; }
   .aktionen { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .abschnitt { font-size: 15px; margin: 18px 0 8px; color: #1c1e21; }
+  .seg { display: flex; gap: 6px; margin-top: 3px; }
+  .seg button { flex: 1; min-height: 40px; padding: 9px 4px; background: #e3e6ea; color: #1c1e21; }
+  .seg button[aria-pressed="true"] { background: #1f4e79; color: #fff; }
+  #artWahl .l { font-size: 13px; color: #444; margin-top: 10px; }
+  .vb { margin-top: 14px; padding: 10px 12px; background: #f4f5f7; border-radius: 8px; }
+  .vbtitel { font-size: 13px; font-weight: 600; }
+  .tagesliste { margin-top: 10px; padding: 10px 12px; background: #f4f5f7; border-radius: 8px; font-size: 14px; }
+  .tagesliste .tk { font-size: 12px; color: #5f6368; }
+  .tagesliste .te { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .tagesliste .m { display: inline-block; width: 8px; height: 8px; flex: none; }
   .box { background: #fff; border-radius: 10px; padding: 12px; margin-top: 16px; }
   .box h2 { font-size: 15px; margin: 0 0 8px; }
   label { display: block; font-size: 13px; margin: 10px 0 3px; color: #444; }
@@ -78,7 +89,16 @@
 </header>
 <main>
   <div id="kalender" class="box" style="margin-top:0;margin-bottom:14px;display:none"></div>
+  <h2 id="kopfRez" class="abschnitt" style="display:none">Rezepte</h2>
   <div id="liste">Lädt …</div>
+  <h2 id="kopfAT" class="abschnitt" style="display:none">Aufgaben &amp; Termine</h2>
+  <div id="listeAT"></div>
+
+  <div class="box">
+    <h2>Google Kalender</h2>
+    <div id="kalStatus" class="info"></div>
+    <div class="aktionen"><button class="sek" onclick="kalenderAbgleich()">Jetzt abgleichen</button></div>
+  </div>
 
   <div class="box">
     <h2>Erinnerungen</h2>
@@ -96,18 +116,43 @@
 <div id="overlay"><div id="formular">
   <h2 id="formTitel" style="margin-top:0"></h2>
   <input type="hidden" id="f_id">
-  <label for="f_name">Medikament</label><input type="text" id="f_name">
-  <label for="f_gruppe">Gruppe (optional, z. B. "Slenyto")</label><input type="text" id="f_gruppe" list="gruppen" autocomplete="off"><datalist id="gruppen"></datalist>
-  <label for="f_dosierung">Dosierung</label><textarea id="f_dosierung"></textarea>
-  <label for="f_text">Text für die Mail an das KID (z. B. "1x 100 Stück ...")</label><textarea id="f_text"></textarea>
-  <div class="zeile">
-    <div><label for="f_beginn">Beginn</label><input type="date" id="f_beginn"></div>
-    <div><label for="f_frist">Fristende</label><input type="date" id="f_frist"></div>
+  <input type="hidden" id="f_art" value="rezept">
+  <div id="artWahl">
+    <div class="l">Art</div>
+    <div class="seg">
+      <button type="button" data-art="rezept" aria-pressed="true">Rezept</button>
+      <button type="button" data-art="aufgabe" aria-pressed="false">Aufgabe</button>
+      <button type="button" data-art="termin" aria-pressed="false">Termin</button>
+    </div>
   </div>
-  <label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1">
-  <div class="check"><input type="checkbox" id="f_foto"><label for="f_foto" style="margin:0">Foto aus Drive anhängen</label></div>
+  <label for="f_name" id="l_name">Medikament</label><input type="text" id="f_name">
+  <label for="f_gruppe">Gruppe (optional, z. B. "Slenyto")</label><input type="text" id="f_gruppe" list="gruppen" autocomplete="off"><datalist id="gruppen"></datalist>
+  <div data-for="rezept"><label for="f_dosierung">Dosierung</label><textarea id="f_dosierung"></textarea></div>
+  <div data-for="rezept aufgabe"><label for="f_text" id="l_text">Text für die Mail an das KID (z. B. "1x 100 Stück ...")</label><textarea id="f_text"></textarea></div>
+  <div class="zeile">
+    <div data-for="rezept"><label for="f_beginn">Beginn</label><input type="date" id="f_beginn"></div>
+    <div><label for="f_frist" id="l_frist">Fristende</label><input type="date" id="f_frist"></div>
+  </div>
+  <div data-for="rezept"><label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1"></div>
+  <div data-for="aufgabe"><label for="f_wiederholung">Wiederholung alle (Monate, leer = einmalig)</label><input type="number" id="f_wiederholung" min="1"></div>
+  <div class="zeile" data-for="termin">
+    <div><label for="f_von">Uhrzeit von</label><input type="time" id="f_von"></div>
+    <div><label for="f_bis">Uhrzeit bis</label><input type="time" id="f_bis"></div>
+  </div>
+  <div data-for="termin"><label for="f_ort">Ort</label><input type="text" id="f_ort"></div>
+  <div data-for="termin" class="vb">
+    <div class="vbtitel">Aufgabe vor dem Termin</div>
+    <div class="check"><input type="checkbox" id="f_vb_aktiv"><label for="f_vb_aktiv" style="margin:0">Automatisch anlegen</label></div>
+    <div class="zeile">
+      <div><label for="f_vb_titel">Aufgabe</label><input type="text" id="f_vb_titel"></div>
+      <div><label for="f_vb_tage">Tage vorher</label><input type="number" id="f_vb_tage" min="0"></div>
+    </div>
+    <label for="f_vb_text">Mail-Text an das KID (optional)</label><textarea id="f_vb_text"></textarea>
+  </div>
+  <div data-for="rezept" class="check"><input type="checkbox" id="f_foto"><label for="f_foto" style="margin:0">Foto aus Drive anhängen</label></div>
   <div class="check"><input type="checkbox" id="f_aktiv"><label for="f_aktiv" style="margin:0">Aktiv (Erinnerung an)</label></div>
   <label for="f_notiz">Notiz</label><textarea id="f_notiz"></textarea>
+  <div id="kalHinweis" class="info" data-for="termin" style="margin-top:8px">Wird im Google Kalender eingetragen und bei Änderungen dort nachgezogen.</div>
   <div class="aktionen">
     <button onclick="speichere()" id="btnSpeichern">Speichern</button>
     <button class="sek" onclick="schliesse()">Abbrechen</button>
@@ -129,7 +174,7 @@
 <div id="toast"></div>
 
 <script>
-var state = { medikamente: [], einstellungen: { vorlauf: 7, buendel: 14 }, heute: '' };
+var state = { medikamente: [], einstellungen: { vorlauf: 7, buendel: 14 }, heute: '', kalender: null, ereignisse: [] };
 var offen = {};      // aufgeklappte Karten (Schlüssel)
 var popAn = null;    // Karte, deren Dosierungs-Feld angeheftet ist
 
@@ -321,6 +366,10 @@ function tagNr(s) {
   var a = s.split('-').map(Number);
   return Math.round(Date.UTC(a[0], a[1] - 1, a[2]) / 86400000);
 }
+function nrDatum(nr) {
+  var d = new Date(nr * 86400000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
 function tageBis(frist) {
   return frist ? tagNr(frist) - tagNr(state.heute) : null;
 }
@@ -328,8 +377,22 @@ function datumDe(frist) {
   var a = frist.split('-');
   return a[2] + '.' + a[1] + '.' + a[0];
 }
+function addTage(datum, n) { return nrDatum(tagNr(datum) + n); }
+// Monate addieren, Tag bleibt erhalten oder rückt auf den letzten Tag des Monats (31.08. + 6 Monate = 28.02.)
+function addMonate(datum, n) {
+  var a = datum.split('-').map(Number);
+  var t = new Date(Date.UTC(a[0], a[1] - 1 + n, 1));
+  var letzter = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+  return t.getUTCFullYear() + '-' + String(t.getUTCMonth() + 1).padStart(2, '0') + '-' + String(Math.min(a[2], letzter)).padStart(2, '0');
+}
+var WOCHENTAGE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+function tagTitel(datum) {
+  return WOCHENTAGE[new Date(tagNr(datum) * 86400000).getUTCDay()] + ' ' + datumDe(datum);
+}
 
 /* ---- Einheiten: Gruppen zusammenfassen ---- */
+function artVon(m) { return m.art === 'aufgabe' || m.art === 'termin' ? m.art : 'rezept'; }
+
 function einheiten() {
   var map = {}, liste = [];
   state.medikamente.forEach(function (m) {
@@ -341,15 +404,28 @@ function einheiten() {
     var aktive = u.mitglieder.filter(function (m) { return m.aktiv; });
     u.aktiv = aktive.length > 0;
     var basis = u.aktiv ? aktive : u.mitglieder;
-    var fristen = basis.filter(function (m) { return m.frist; }).map(function (m) { return m.frist; }).sort();
-    u.frist = fristen.length ? fristen[0] : '';
-    var beginne = basis.filter(function (m) { return m.beginn; }).map(function (m) { return m.beginn; }).sort();
+    var rez = basis.filter(function (m) { return artVon(m) === 'rezept'; });
+    u.rezept = u.mitglieder.some(function (m) { return artVon(m) === 'rezept'; });   // gehört in den Bereich "Rezepte"
+    u.hatText = basis.some(function (m) { return !!m.text; });
+    // nächste Frist: früheste Frist, vergangene Termine zählen nicht mehr
+    var kand = basis.filter(function (m) { return m.frist && !(artVon(m) === 'termin' && m.frist < state.heute); })
+      .sort(function (x, y) { return x.frist < y.frist ? -1 : x.frist > y.frist ? 1 : 0; });
+    u.fruehestes = kand[0] || null;
+    u.frist = u.fruehestes ? u.fruehestes.frist : '';
+    u.vergangen = !u.frist && basis.some(function (m) { return artVon(m) === 'termin' && m.frist; });
+    // Kalenderbalken: nur Rezepte, Beginn bis frühestes Fristende
+    var beginne = rez.filter(function (m) { return m.beginn; }).map(function (m) { return m.beginn; }).sort();
     u.beginn = beginne.length ? beginne[0] : '';
+    var rfr = rez.filter(function (m) { return m.frist; }).map(function (m) { return m.frist; }).sort();
+    u.rezeptFrist = rfr.length ? rfr[0] : '';
+    // Dosierung: nur Rezepte
     var dosen = [];
-    basis.forEach(function (m) { if (m.dosierung && dosen.indexOf(m.dosierung) < 0) dosen.push(m.dosierung); });
+    rez.forEach(function (m) { if (m.dosierung && dosen.indexOf(m.dosierung) < 0) dosen.push(m.dosierung); });
     if (dosen.length <= 1) u.dosis = dosen[0] || '';
-    else u.dosis = basis.filter(function (m) { return m.dosierung; }).map(function (m) { return m.name + ': ' + m.dosierung; }).join('\n');
+    else u.dosis = rez.filter(function (m) { return m.dosierung; }).map(function (m) { return m.name + ': ' + m.dosierung; }).join('\n');
     u.aktiveIds = basis.map(function (m) { return m.id; });
+    u.rezeptIds = rez.map(function (m) { return m.id; });
+    u.aufgabeIds = basis.filter(function (m) { return artVon(m) === 'aufgabe'; }).map(function (m) { return m.id; });
   });
   return liste;
 }
@@ -358,9 +434,21 @@ function statusKlasse(u) {
   if (d === null) return '';
   return d < 0 ? 'rot' : d <= state.einstellungen.vorlauf + state.einstellungen.buendel ? 'orange' : 'gruen';
 }
+function relativ(d, art) {
+  if (d < 0) return 'seit ' + (-d) + ' Tagen ' + (art === 'rezept' ? 'abgelaufen' : 'überfällig');
+  return d === 0 ? 'heute' : 'in ' + d + ' Tagen';
+}
+function fristZeile(u) {
+  var m = u.fruehestes;
+  if (!m) return u.vergangen ? 'Termin vergangen' : 'keine Frist hinterlegt';
+  var art = artVon(m), d = tageBis(m.frist), rel = relativ(d, art), dat = datumDe(m.frist);
+  if (art === 'termin') return 'Termin · ' + dat + (m.von ? ', ' + m.von : '') + ' · ' + rel;
+  if (art === 'aufgabe') return (u.gruppe ? m.name + ' bis ' : 'Aufgabe · fällig ') + dat + ' · ' + rel;
+  return 'Frist ' + dat + ' · ' + rel;
+}
 
 /* ---- Kalender ---- */
-var kalender = { jahr: null, monat: null };
+var kalender = { jahr: null, monat: null, tag: null };
 var letzteKalender = '';
 var MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 var FARBEN = {
@@ -369,13 +457,35 @@ var FARBEN = {
   gruen: ['#9fd3a2', '#123514']
 };
 var MAX_LANES = 2;
-var ZEILE_H = 66;
+var ZEILE_H = 82;
+var BLAU = '#1f4e79', LILA = '#7b3fa0';
 
 function kalenderMonat(delta) {
   var d = new Date(Date.UTC(kalender.jahr, kalender.monat + delta, 1));
   kalender.jahr = d.getUTCFullYear();
   kalender.monat = d.getUTCMonth();
   renderKalender();
+}
+
+// Einträge pro Tag: Termine/Kalendereinträge (Kreis) und fällige Aufgaben (Quadrat)
+function tagesEintraege() {
+  var map = {};
+  function add(datum, e) { (map[datum] = map[datum] || []).push(e); }
+  var kalVerbunden = state.kalender && state.kalender.verbunden;
+  if (kalVerbunden) {
+    (state.ereignisse || []).forEach(function (ev) {
+      add(ev.datum, { art: 'termin', titel: ev.titel, von: ev.von, bis: ev.bis, ort: ev.ort, quelle: 'Google Kalender' });
+    });
+  } else {
+    // Ohne Kalender-Verbindung die Termine aus der App zeigen
+    state.medikamente.forEach(function (m) {
+      if (artVon(m) === 'termin' && m.aktiv && m.frist) add(m.frist, { art: 'termin', titel: m.name, von: m.von, bis: m.bis, ort: m.ort, quelle: 'App' });
+    });
+  }
+  state.medikamente.forEach(function (m) {
+    if (artVon(m) === 'aufgabe' && m.aktiv && m.frist) add(m.frist, { art: 'aufgabe', titel: m.name, von: '', bis: '', ort: '', quelle: 'Aufgabe' });
+  });
+  return map;
 }
 
 function renderKalender() {
@@ -386,6 +496,7 @@ function renderKalender() {
     var t = state.heute.split('-').map(Number);
     kalender.jahr = t[0]; kalender.monat = t[1] - 1;
   }
+  if (!kalender.tag) kalender.tag = state.heute;
   var heuteNr = tagNr(state.heute);
   var ersterNr = Math.round(Date.UTC(kalender.jahr, kalender.monat, 1) / 86400000);
   var tageImMonat = new Date(Date.UTC(kalender.jahr, kalender.monat + 1, 0)).getUTCDate();
@@ -394,13 +505,15 @@ function renderKalender() {
   var startNr = ersterNr - versatz;
   var endeNr = startNr + wochen * 7 - 1;
   var einst = state.einstellungen;
+  var eintraege = tagesEintraege();
 
-  // Ein Balken je Einheit (Gruppe oder Einzelmedikament): Beginn bis frühestes Fristende
+  // Ein Balken je Rezept-Einheit: Beginn bis frühestes Fristende
   var balken = einheiten().filter(function (u) {
-    return u.aktiv && u.beginn && u.frist && tagNr(u.frist) >= tagNr(u.beginn);
+    return u.aktiv && u.beginn && u.rezeptFrist && tagNr(u.rezeptFrist) >= tagNr(u.beginn);
   }).map(function (u) {
-    var von = tagNr(u.beginn), bis = tagNr(u.frist);
-    return { name: u.name, von: von, bis: bis, erinn: bis - einst.vorlauf, farbe: FARBEN[statusKlasse(u)] || FARBEN.gruen, lane: -1 };
+    var von = tagNr(u.beginn), bis = tagNr(u.rezeptFrist), d = bis - heuteNr;
+    var klasse = d < 0 ? 'rot' : d <= einst.vorlauf + einst.buendel ? 'orange' : 'gruen';
+    return { name: u.name, von: von, bis: bis, erinn: bis - einst.vorlauf, farbe: FARBEN[klasse], lane: -1 };
   }).filter(function (b) { return b.bis >= startNr && b.von <= endeNr; })
     .sort(function (a, b) { return a.von - b.von || a.name.localeCompare(b.name); });
 
@@ -424,14 +537,24 @@ function renderKalender() {
   var zeilen = '';
   for (var w = 0; w < wochen; w++) {
     var wStart = startNr + w * 7, wEnde = wStart + 6;
-    var zellen = '';
+    var zellen = '', marker = '';
     for (var c = 0; c < 7; c++) {
-      var nr = wStart + c, dd = new Date(nr * 86400000);
+      var nr = wStart + c, dd = new Date(nr * 86400000), datum = nrDatum(nr);
       var imMonat = dd.getUTCMonth() === kalender.monat;
       var num = nr === heuteNr
         ? '<span style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:#1f4e79;color:#fff;font-size:12px">' + dd.getUTCDate() + '</span>'
         : '<span style="font-size:12px;color:' + (imMonat ? '#1c1e21' : '#6b7077') + '">' + dd.getUTCDate() + '</span>';
-      zellen += '<div style="flex:1;padding:2px 3px;border-right:1px solid #eceef1;box-sizing:border-box">' + num + '</div>';
+      var sel = datum === kalender.tag ? 'background:#e8f0f8;' : '';
+      zellen += '<div data-a="tag" data-d="' + datum + '" style="flex:1;padding:2px 3px;border-right:1px solid #eceef1;box-sizing:border-box;cursor:pointer;' + sel + '">' + num + '</div>';
+      var es = eintraege[datum] || [];
+      var arten = [];
+      if (es.some(function (x) { return x.art === 'termin'; })) arten.push('termin');
+      if (es.some(function (x) { return x.art === 'aufgabe'; })) arten.push('aufgabe');
+      // Marker mittig in der Spalte dieses Tages
+      arten.forEach(function (art, i) {
+        var form = art === 'termin' ? 'border-radius:50%;background:' + BLAU : 'border-radius:2px;background:' + LILA;
+        marker += '<div style="position:absolute;left:calc(' + ((c + 0.5) / 7 * 100) + '% + ' + ((i - (arten.length - 1) / 2) * 11 - 4) + 'px);top:' + (ZEILE_H - 14) + 'px;width:8px;height:8px;' + form + '"></div>';
+      });
     }
     var innen = '', ueberlauf = 0;
     balken.forEach(function (b) {
@@ -452,16 +575,35 @@ function renderKalender() {
       innen += '<div style="position:absolute;right:3px;top:3px;font-size:11px;color:#5f6368">+' + ueberlauf + '</div>';
     }
     zeilen += '<div style="position:relative;height:' + ZEILE_H + 'px;border-top:1px solid #e3e6ea;display:flex">' + zellen +
-      '<div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none">' + innen + '</div></div>';
+      '<div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none">' + innen + marker + '</div></div>';
   }
-  var legende = '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#5f6368">' +
-    '<span style="display:inline-block;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:#fff;border:2px solid #3d2800"></span>' +
-    'Erinnerungstag · Balkenende = Fristende</div>';
-  var html = kopf + '<div style="display:flex">' + tage + '</div><div style="border-bottom:1px solid #e3e6ea">' + zeilen + '</div>' + legende;
+
+  // Einträge des gewählten Tages
+  var es = (eintraege[kalender.tag] || []).slice().sort(function (x, y) { return (x.von || '') < (y.von || '') ? -1 : 1; });
+  var liste = es.length ? es.map(function (x) {
+    var m = x.art === 'termin' ? 'border-radius:50%;background:' + BLAU : 'border-radius:2px;background:' + LILA;
+    var zeit = x.von ? '<b>' + esc(x.von) + '</b> ' : '';
+    var zusatz = [x.ort ? esc(x.ort) : '', esc(x.quelle)].filter(Boolean).join(' · ');
+    return '<div class="te"><span class="m" style="' + m + '"></span><span>' + zeit + esc(x.titel) + ' <span style="color:#5f6368">· ' + zusatz + '</span></span></div>';
+  }).join('') : '<div class="te" style="color:#5f6368">Keine Einträge</div>';
+  var tagesliste = '<div class="tagesliste"><div class="tk">' + tagTitel(kalender.tag) + '</div>' + liste + '</div>';
+
+  var legende = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#5f6368">' +
+    '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + BLAU + '"></span> Termin' +
+    '&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + LILA + '"></span> Aufgabe' +
+    '&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:#fff;border:2px solid #3d2800"></span> Erinnerungstag</div>';
+  var html = kopf + '<div style="display:flex">' + tage + '</div><div style="border-bottom:1px solid #e3e6ea">' + zeilen + '</div>' + tagesliste + legende;
   if (html === letzteKalender) return;
   letzteKalender = html;
   box.innerHTML = html;
 }
+
+$('kalender').addEventListener('click', function (e) {
+  var z = e.target.closest ? e.target.closest('[data-a="tag"]') : null;
+  if (!z) return;
+  kalender.tag = z.getAttribute('data-d');
+  renderKalender();
+});
 
 /* ---- Liste ---- */
 var INFO_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#5f6368" stroke-width="1.5"></circle><path d="M8 7.2v3.6" stroke="#5f6368" stroke-width="1.5" stroke-linecap="round"></path><circle cx="8" cy="4.9" r="0.9" fill="#5f6368"></circle></svg>';
@@ -472,8 +614,22 @@ function chevron(auf) {
 function wert(label, text) {
   return '<div class="wert"><div class="l">' + label + '</div><div class="v">' + esc(text) + '</div></div>';
 }
-function mitgliedDetails(m) {
-  return (m.text ? wert('Mail-Text', m.text) : '') + (m.foto ? wert('Foto', 'wird angehängt') : '') + (m.notiz ? wert('Notiz', m.notiz) : '');
+var ART_NAME = { rezept: 'Rezept', aufgabe: 'Aufgabe', termin: 'Termin' };
+
+// Detailzeilen je Art. mitDatum = false bei Einzelkarten, deren Datum schon in der Kopfzeile steht
+function mitgliedZeilen(m, mitDatum) {
+  var art = artVon(m), z = '';
+  if (art === 'rezept') {
+    z += (m.text ? wert('Mail-Text', m.text) : '') + (m.foto ? wert('Foto', 'wird angehängt') : '');
+  } else if (art === 'aufgabe') {
+    if (mitDatum && m.frist) z += wert('Fällig', datumDe(m.frist));
+    z += m.wiederholung ? wert('Wiederholung', 'alle ' + m.wiederholung + (m.wiederholung === 1 ? ' Monat' : ' Monate')) : '';
+    z += m.text ? wert('Mail-Text', m.text) : '';
+  } else {
+    if (mitDatum && m.frist) z += wert('Wann', tagTitel(m.frist) + (m.von ? ', ' + m.von + (m.bis ? ' bis ' + m.bis : '') : ''));
+    z += m.ort ? wert('Ort', m.ort) : '';
+  }
+  return z + (m.notiz ? wert('Notiz', m.notiz) : '');
 }
 
 var dragAktiv = false;       // während des Ziehens und kurz nach einer Tastatur-Verschiebung kein Neuaufbau
@@ -499,54 +655,59 @@ function sortierteEinheiten() {
   return liste.sort(function (x, y) { return x.reihe - y.reihe; });
 }
 
-var letzteListe = '';
-function renderListe() {
-  var liste = sortierteEinheiten();
-  var html;
-  if (liste.length === 0) {
-    html = '<p>Noch keine Einträge. Oben rechts auf "+ Neu".</p>';
-  } else {
-    html = liste.map(function (u) {
-      var d = tageBis(u.frist), text = 'keine Frist hinterlegt';
-      if (d !== null) {
-        text = 'Frist ' + datumDe(u.frist) + ' · ' + (d < 0 ? 'seit ' + (-d) + ' Tagen abgelaufen' : d === 0 ? 'heute' : 'in ' + d + ' Tagen');
-      }
-      var auf = !!offen[u.key], k = esc(u.key);
-      var chip = '';
-      if (u.dosis) {
-        chip = '<span class="chipwrap' + (popAn === u.key ? ' an' : '') + '">' +
-          '<button class="chip" data-a="pop" data-k="' + k + '" aria-expanded="' + (popAn === u.key) + '">' + INFO_SVG + 'Dosierung</button>' +
-          '<div class="pop"><div class="pl">Dosierung</div>' + esc(u.dosis) + '</div></span>';
-      }
-      var details = '';
-      if (auf) {
-        if (!u.gruppe) {
-          var m = u.mitglieder[0];
-          details = mitgliedDetails(m) +
-            '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' +
-            '<button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>';
-        } else {
-          details = '<div class="aktionen"><button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button></div>' +
-            u.mitglieder.map(function (m) {
-              return '<div class="mitglied"><div class="mname">' + esc(m.name) + (m.aktiv ? '' : ' (inaktiv)') + '</div>' + mitgliedDetails(m) +
-                '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button></div></div>';
-            }).join('');
-        }
-      }
-      return '<div class="karte ' + statusKlasse(u) + (u.aktiv ? '' : ' inaktiv') + '" data-key="' + k + '">' +
-        '<div class="reihe">' +
-          '<button class="griff" aria-label="Verschieben: ' + esc(u.name) + ' (ziehen oder Pfeiltasten hoch und runter)" title="Ziehen zum Sortieren">⠿</button>' +
-          '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
-            '<span><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span><span class="frist">' + esc(text) + '</span></span>' + chevron(auf) + '</button>' +
-        '</div>' +
-        '<div class="zeile2">' + chip + '<button class="neu" data-a="lieferung" data-k="' + k + '">Neue Lieferung erhalten</button></div>' +
-        (auf ? '<div class="detail">' + details + '</div>' : '') +
-      '</div>';
-    }).join('');
+function karteHtml(u) {
+  var auf = !!offen[u.key], k = esc(u.key);
+  var chip = '';
+  if (u.dosis) {
+    chip = '<span class="chipwrap' + (popAn === u.key ? ' an' : '') + '">' +
+      '<button class="chip" data-a="pop" data-k="' + k + '" aria-expanded="' + (popAn === u.key) + '">' + INFO_SVG + 'Dosierung</button>' +
+      '<div class="pop"><div class="pl">Dosierung</div>' + esc(u.dosis) + '</div></span>';
   }
-  if (html === letzteListe) return;   // nichts geändert: DOM nicht anfassen (kein Flackern, keine Scroll-Sprünge)
-  letzteListe = html;
-  $('liste').innerHTML = html;
+  // Hauptknopf: Rezepte "Neue Lieferung erhalten", Aufgaben "Erledigt", reine Termine keiner
+  var knopf = '';
+  var aktiveRezepte = u.mitglieder.filter(function (m) { return m.aktiv && artVon(m) === 'rezept'; });
+  if (aktiveRezepte.length) knopf = '<button class="neu" data-a="lieferung" data-k="' + k + '">Neue Lieferung erhalten</button>';
+  else if (u.aufgabeIds.length) knopf = '<button class="neu" data-a="erledigt" data-k="' + k + '">Erledigt</button>';
+
+  var details = '';
+  if (auf) {
+    var mailKnopf = u.hatText ? '<button class="sek" data-a="mail" data-k="' + k + '">Mail auslösen</button>' : '';
+    if (!u.gruppe) {
+      var m = u.mitglieder[0];
+      details = mitgliedZeilen(m, false) +
+        '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' + mailKnopf + '</div>';
+    } else {
+      details = (mailKnopf ? '<div class="aktionen">' + mailKnopf + '</div>' : '') +
+        u.mitglieder.map(function (m) {
+          var erl = artVon(m) === 'aufgabe' && m.aktiv ? '<button class="sek" data-a="erledigt1" data-k="' + esc(m.id) + '">Erledigt</button>' : '';
+          return '<div class="mitglied"><div class="mname">' + esc(m.name) + ' <span style="font-weight:400;color:#5f6368">· ' + ART_NAME[artVon(m)] + (m.aktiv ? '' : ', inaktiv') + '</span></div>' +
+            mitgliedZeilen(m, true) +
+            '<div class="aktionen"><button class="sek" data-a="edit" data-k="' + esc(m.id) + '">Bearbeiten</button>' + erl + '</div></div>';
+        }).join('');
+    }
+  }
+  return '<div class="karte ' + statusKlasse(u) + (u.aktiv ? '' : ' inaktiv') + '" data-key="' + k + '">' +
+    '<div class="reihe">' +
+      '<button class="griff" aria-label="Verschieben: ' + esc(u.name) + ' (ziehen oder Pfeiltasten hoch und runter)" title="Ziehen zum Sortieren">⠿</button>' +
+      '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
+        '<span><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span><span class="frist">' + esc(fristZeile(u)) + '</span></span>' + chevron(auf) + '</button>' +
+    '</div>' +
+    ((chip || knopf) ? '<div class="zeile2">' + chip + knopf + '</div>' : '<div style="height:4px"></div>') +
+    (auf ? '<div class="detail">' + details + '</div>' : '') +
+  '</div>';
+}
+
+var letzteListe = '', letzteListeAT = '';
+function renderListe() {
+  var alle = sortierteEinheiten();
+  var rez = alle.filter(function (u) { return u.rezept; });
+  var at = alle.filter(function (u) { return !u.rezept; });
+  var h1 = rez.length ? rez.map(karteHtml).join('') : (alle.length === 0 ? '<p>Noch keine Einträge. Oben rechts auf "+ Neu".</p>' : '');
+  var h2 = at.map(karteHtml).join('');
+  $('kopfRez').style.display = rez.length && at.length ? '' : 'none';
+  $('kopfAT').style.display = at.length ? '' : 'none';
+  if (h1 !== letzteListe) { letzteListe = h1; $('liste').innerHTML = h1; }   // unverändert: DOM nicht anfassen
+  if (h2 !== letzteListeAT) { letzteListeAT = h2; $('listeAT').innerHTML = h2; }
 }
 
 // Eingabefelder für Vorlauf/Bündelung nur überschreiben, wenn sich der Wert auf dem Server geändert hat
@@ -554,10 +715,15 @@ function renderListe() {
 var einstGesetzt = null;
 function renderEinstellungen() {
   var e = state.einstellungen;
-  if (einstGesetzt && einstGesetzt.vorlauf === e.vorlauf && einstGesetzt.buendel === e.buendel) return;
-  if (document.activeElement !== $('vorlauf')) $('vorlauf').value = e.vorlauf;
-  if (document.activeElement !== $('buendel')) $('buendel').value = e.buendel;
-  einstGesetzt = { vorlauf: e.vorlauf, buendel: e.buendel };
+  if (!(einstGesetzt && einstGesetzt.vorlauf === e.vorlauf && einstGesetzt.buendel === e.buendel)) {
+    if (document.activeElement !== $('vorlauf')) $('vorlauf').value = e.vorlauf;
+    if (document.activeElement !== $('buendel')) $('buendel').value = e.buendel;
+    einstGesetzt = { vorlauf: e.vorlauf, buendel: e.buendel };
+  }
+  var k = state.kalender;
+  $('kalStatus').textContent = k
+    ? (k.verbunden ? 'Kalender „' + k.name + '“ · verbunden · zuletzt abgeglichen um ' + k.um + ' Uhr' : k.status)
+    : '';
 }
 var letzteGruppen = '';
 function renderGruppen() {
@@ -571,7 +737,7 @@ function findeEinheit(key) {
   return sortierteEinheiten().filter(function (u) { return u.key === key; })[0];
 }
 
-$('liste').addEventListener('click', function (e) {
+function klickListe(e) {
   var b = e.target.closest('[data-a]');
   if (!b) return;
   var a = b.getAttribute('data-a'), k = b.getAttribute('data-k');
@@ -579,26 +745,32 @@ $('liste').addEventListener('click', function (e) {
   else if (a === 'pop') { popAn = popAn === k ? null : k; renderListe(); }
   else if (a === 'edit') { bearbeite(k); }
   else if (a === 'lieferung') { lieferung(k); }
+  else if (a === 'erledigt') { erledigt(findeEinheit(k).aufgabeIds, findeEinheit(k).name); }
+  else if (a === 'erledigt1') { var m = finde(k); erledigt([k], m ? m.name : ''); }
   else if (a === 'mail') { einzelmail(k); }
-});
+}
+$('liste').addEventListener('click', klickListe);
+$('listeAT').addEventListener('click', klickListe);
 
 /* ---- Ziehen zum Sortieren (wie Ziele in Google Maps) ----
-   Pointer Events: Maus und Touch. Beim Loslassen wird die Reihenfolge aus dem DOM gelesen und sofort gespeichert. */
+   Pointer Events: Maus und Touch. Gezogen wird innerhalb eines Bereichs (Rezepte bzw. Aufgaben & Termine).
+   Beim Loslassen wird die Reihenfolge aus dem DOM gelesen und sofort gespeichert. */
 var activeDrag = null;
 var autoScrollTimer = null;
 
-function listeReihenfolge() {
-  return Array.prototype.slice.call($('liste').children).map(function (r) { return r.dataset.key; }).filter(Boolean);
+function listeReihenfolge(container) {
+  return Array.prototype.slice.call(container.children).map(function (r) { return r.dataset.key; }).filter(Boolean);
 }
 
-$('liste').addEventListener('pointerdown', function (e) {
+function pointerdownListe(e) {
   var griff = e.target.closest('.griff');
   if (!griff) return;
   if (activeDrag) return;
   if (e.button !== undefined && e.button !== 0) return;
   e.preventDefault();
   var li = griff.closest('.karte');
-  activeDrag = { li: li, handle: griff, pointerId: e.pointerId, y: e.clientY, startOrder: listeReihenfolge().join('\u0001') };
+  var container = li.parentNode;
+  activeDrag = { li: li, ul: container, handle: griff, pointerId: e.pointerId, y: e.clientY, startOrder: listeReihenfolge(container).join('\u0001') };
   dragAktiv = true;
   li.classList.add('dragging');
   try { griff.setPointerCapture(e.pointerId); } catch (err) {}
@@ -608,12 +780,14 @@ $('liste').addEventListener('pointerdown', function (e) {
   document.addEventListener('pointercancel', endDrag);
   window.addEventListener('blur', endDrag);
   autoScrollTimer = setInterval(autoScrollStep, 40);
-});
+}
+$('liste').addEventListener('pointerdown', pointerdownListe);
+$('listeAT').addEventListener('pointerdown', pointerdownListe);
 
 function platziere(y) {
   var d = activeDrag;
   if (!d) return;
-  var ul = $('liste');
+  var ul = d.ul;
   var zeilen = Array.prototype.slice.call(ul.children).filter(function (r) { return r !== d.li; });
   for (var i = 0; i < zeilen.length; i++) {
     var rect = zeilen[i].getBoundingClientRect();
@@ -649,17 +823,17 @@ function endDrag() {
   document.removeEventListener('pointercancel', endDrag);
   window.removeEventListener('blur', endDrag);
   dragAktiv = false;
-  var neu = listeReihenfolge();
+  var neu = listeReihenfolge(d.ul);
   if (neu.join('\u0001') === d.startOrder) { if (renderAusstehend) render(); return; }
-  speichereReihenfolge(neu);
+  speichereReihenfolge();
 }
 
 // Tastatur: Pfeil hoch/runter am Griff verschiebt die Karte um eine Position
-$('liste').addEventListener('keydown', function (e) {
+function keydownListe(e) {
   var griff = e.target.closest ? e.target.closest('.griff') : null;
   if (!griff || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
   e.preventDefault();
-  var li = griff.closest('.karte'), ul = $('liste');
+  var li = griff.closest('.karte'), ul = li.parentNode;
   if (e.key === 'ArrowUp' && li.previousElementSibling) ul.insertBefore(li, li.previousElementSibling);
   else if (e.key === 'ArrowDown' && li.nextElementSibling) ul.insertBefore(li.nextElementSibling, li);
   else return;
@@ -667,11 +841,15 @@ $('liste').addEventListener('keydown', function (e) {
   clearTimeout(tastaturTimer);
   tastaturTimer = setTimeout(function () {
     tastaturTimer = null;
-    speichereReihenfolge(listeReihenfolge());
+    speichereReihenfolge();
   }, 600);
-});
+}
+$('liste').addEventListener('keydown', keydownListe);
+$('listeAT').addEventListener('keydown', keydownListe);
 
-function speichereReihenfolge(schluessel) {
+// Gesamtreihenfolge: erst der Bereich Rezepte, dann Aufgaben & Termine, jeweils wie in der Anzeige
+function speichereReihenfolge() {
+  var schluessel = listeReihenfolge($('liste')).concat(listeReihenfolge($('listeAT')));
   var ids = [];
   schluessel.forEach(function (k) {
     var u = findeEinheit(k);
@@ -680,7 +858,7 @@ function speichereReihenfolge(schluessel) {
   var stamp = ++optimisticCounter;
   ordnungOverlay = { ids: ids, stamp: stamp };
   applyOrdnung();          // sofort lokal übernehmen
-  letzteListe = '';        // DOM nach dem Ziehen einmal sicher aus dem Stand neu aufbauen
+  letzteListe = ''; letzteListeAT = '';   // DOM nach dem Ziehen einmal sicher aus dem Stand neu aufbauen
   render();
   call('reihenfolge', { ids: ids }).then(function (s) {
     if (ordnungOverlay && ordnungOverlay.stamp === stamp) ordnungOverlay = null;
@@ -698,7 +876,27 @@ function finde(id) {
 function formularOffen() {
   return $('overlay').style.display === 'block' || $('zugang').style.display === 'block';
 }
+
+// Zeigt nur die Felder, die zur gewählten Art gehören
+function setzeArt(art) {
+  $('f_art').value = art;
+  Array.prototype.forEach.call(document.querySelectorAll('#artWahl button'), function (b) {
+    b.setAttribute('aria-pressed', b.getAttribute('data-art') === art ? 'true' : 'false');
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#formular [data-for]'), function (el) {
+    el.style.display = el.getAttribute('data-for').split(' ').indexOf(art) >= 0 ? '' : 'none';
+  });
+  $('l_name').textContent = art === 'rezept' ? 'Medikament' : 'Titel';
+  $('l_frist').textContent = art === 'rezept' ? 'Fristende' : art === 'aufgabe' ? 'Fällig am' : 'Datum';
+  $('l_text').textContent = art === 'aufgabe' ? 'Mail-Text an das KID (optional)' : 'Text für die Mail an das KID (z. B. "1x 100 Stück ...")';
+}
+document.querySelector('#artWahl').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-art]');
+  if (b) setzeArt(b.getAttribute('data-art'));
+});
+
 function fuelle(m) {
+  var art = artVon(m);
   $('f_id').value = m.id || '';
   $('f_name').value = m.name || '';
   $('f_gruppe').value = m.gruppe || '';
@@ -707,19 +905,31 @@ function fuelle(m) {
   $('f_beginn').value = m.beginn || '';
   $('f_frist').value = m.frist || '';
   $('f_reichweite').value = m.reichweite === undefined ? '' : m.reichweite;
+  $('f_wiederholung').value = m.wiederholung === undefined ? '' : m.wiederholung;
+  $('f_von').value = m.von || '';
+  $('f_bis').value = m.bis || '';
+  $('f_ort').value = m.ort || '';
+  var vb = m.vorbereitung;
+  $('f_vb_aktiv').checked = vb ? !!vb.aktiv : false;
+  $('f_vb_titel').value = vb ? vb.titel : 'Überweisung einholen';
+  $('f_vb_tage').value = vb ? vb.tage : 14;
+  $('f_vb_text').value = vb ? vb.text : '';
   $('f_foto').checked = !!m.foto;
   $('f_aktiv').checked = m.aktiv !== false;
   $('f_notiz').value = m.notiz || '';
+  setzeArt(art);
   $('overlay').style.display = 'block';
 }
 function neu() {
-  $('formTitel').textContent = 'Neues Medikament';
+  $('formTitel').textContent = 'Neu';
   $('btnLoeschen').style.display = 'none';
+  $('artWahl').style.display = '';
   fuelle({});
 }
 function bearbeite(id) {
   $('formTitel').textContent = 'Bearbeiten';
   $('btnLoeschen').style.display = '';
+  $('artWahl').style.display = 'none';       // die Art eines bestehenden Eintrags bleibt fest
   fuelle(finde(id));
 }
 function schliesse() { $('overlay').style.display = 'none'; }
@@ -727,76 +937,110 @@ function schliesse() { $('overlay').style.display = 'none'; }
 function neueId() {
   return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 }
+function hoechsteReihenfolge() {
+  var h = 0;
+  state.medikamente.forEach(function (x) { if ((x.reihenfolge || 0) > h && x.reihenfolge < 100000) h = x.reihenfolge; });
+  return h;
+}
 
 // Speichern wirkt sofort in der Oberfläche; der Server-Aufruf läuft im Hintergrund.
 function speichere() {
+  var art = $('f_art').value;
   var m = {
     id: $('f_id').value,
+    art: art,
     name: $('f_name').value.trim(),
     gruppe: $('f_gruppe').value.trim(),
-    dosierung: $('f_dosierung').value.trim(),
-    text: $('f_text').value.trim(),
-    beginn: $('f_beginn').value,
+    dosierung: art === 'rezept' ? $('f_dosierung').value.trim() : '',
+    text: art === 'termin' ? '' : $('f_text').value.trim(),
+    beginn: art === 'rezept' ? $('f_beginn').value : '',
     frist: $('f_frist').value,
-    reichweite: $('f_reichweite').value === '' ? '' : Number($('f_reichweite').value),
-    foto: $('f_foto').checked,
+    reichweite: art === 'rezept' && $('f_reichweite').value !== '' ? Number($('f_reichweite').value) : '',
+    wiederholung: art === 'aufgabe' && $('f_wiederholung').value !== '' ? Number($('f_wiederholung').value) : '',
+    von: art === 'termin' ? $('f_von').value : '',
+    bis: art === 'termin' ? $('f_bis').value : '',
+    ort: art === 'termin' ? $('f_ort').value.trim() : '',
+    foto: art === 'rezept' && $('f_foto').checked,
     aktiv: $('f_aktiv').checked,
     notiz: $('f_notiz').value.trim()
   };
-  if (!m.name) { meldung('Name fehlt.', true); return; }
-  if (!m.text) { meldung('Text für die Mail fehlt.', true); return; }
-  var istNeu = !m.id;
-  if (istNeu) {
-    m.id = neueId();
-    var hoechste = 0;
-    state.medikamente.forEach(function (x) { if ((x.reihenfolge || 0) > hoechste && x.reihenfolge < 100000) hoechste = x.reihenfolge; });
-    m.reihenfolge = hoechste + 1;
+  var vb = null;
+  if (art === 'termin') {
+    vb = { aktiv: $('f_vb_aktiv').checked, titel: $('f_vb_titel').value.trim() || 'Vorbereitung',
+           tage: Number($('f_vb_tage').value) || 0, text: $('f_vb_text').value.trim() };
+    m.vorbereitung = vb;
   }
+  if (!m.name) { meldung('Name fehlt.', true); return; }
+  if (art === 'rezept' && !m.text) { meldung('Text für die Mail fehlt.', true); return; }
+  if (art !== 'rezept' && !m.frist) { meldung(art === 'termin' ? 'Datum fehlt.' : 'Fälligkeitsdatum fehlt.', true); return; }
+  if (art === 'termin' && m.bis && m.von && m.bis < m.von) { meldung('Die Endzeit liegt vor der Startzeit.', true); return; }
+
+  var istNeu = !m.id;
+  var hoechste = hoechsteReihenfolge();
+  if (istNeu) { m.id = neueId(); m.reihenfolge = hoechste + 1; }
+  // Gleiche Regel wie auf dem Server: aktive Vorbereitung ohne Gruppe -> Gruppe = Titel des Termins
+  var gruppe = m.gruppe || (vb && vb.aktiv ? m.name : '');
+  m.gruppe = gruppe;
   var patch = {};
   for (var k in m) { if (m.hasOwnProperty(k) && k !== 'id') patch[k] = m[k]; }
   if (!istNeu) delete patch.reihenfolge;
-  var stamp = markOptimistic(m.id, patch, istNeu);
+  var stamps = {};
+  stamps[m.id] = markOptimistic(m.id, patch, istNeu);
+
+  // Vorbereitungs-Aufgabe mitführen (ID = "v-" + Termin-ID)
+  var cid = 'v-' + m.id;
+  var companion = null;
+  if (art === 'termin') {
+    if (vb.aktiv) {
+      var vorhanden = finde(cid);
+      var cp = { art: 'aufgabe', name: vb.titel, text: vb.text, frist: addTage(m.frist, -vb.tage), gruppe: gruppe, dosierung: '', notiz: '',
+                 beginn: '', reichweite: '', wiederholung: '', von: '', bis: '', ort: '', foto: false };
+      if (!vorhanden) { cp.aktiv = m.aktiv; cp.reihenfolge = hoechste + (istNeu ? 2 : 1); }
+      stamps[cid] = markOptimistic(cid, cp, !vorhanden);
+      companion = cid;
+    } else if (finde(cid)) {
+      geloescht[cid] = true;
+      companion = cid;
+    }
+  }
   schliesse();
-  applyOptimistic();
+  applyDeletions(); applyOptimistic();
   render();
   call('speichere', { medikament: m }).then(function (s) {
-    clearOptimistic(m.id, stamp);
+    Object.keys(stamps).forEach(function (id) { clearOptimistic(id, stamps[id]); });
+    if (companion) delete geloescht[companion];
     setState(s);
-    meldung('Gespeichert');
+    if (s && s.hinweis) meldung(s.hinweis, true); else meldung('Gespeichert');
   }).catch(function (e) {
-    clearOptimistic(m.id, stamp);
+    Object.keys(stamps).forEach(function (id) { clearOptimistic(id, stamps[id]); });
+    if (companion) delete geloescht[companion];
     fehler(e); neuLaden();
   });
 }
 
 function loesche() {
   var m = finde($('f_id').value);
-  if (!m || !confirm('"' + m.name + '" wirklich löschen?')) return;
-  var id = m.id;
-  geloescht[id] = true;
+  if (!m || !confirm('"' + m.name + '" wirklich löschen?' + (artVon(m) === 'termin' ? ' Der Eintrag im Google Kalender und die zugehörige Aufgabe werden ebenfalls gelöscht.' : ''))) return;
+  var ids = [m.id];
+  if (artVon(m) === 'termin' && finde('v-' + m.id)) ids.push('v-' + m.id);
+  ids.forEach(function (i) { geloescht[i] = true; });
   schliesse();
   applyDeletions();
   render();
-  call('loesche', { id: id }).then(function (s) {
-    delete geloescht[id];
+  call('loesche', { id: m.id }).then(function (s) {
+    ids.forEach(function (i) { delete geloescht[i]; });
     setState(s);
-    meldung('Gelöscht');
+    if (s && s.hinweis) meldung(s.hinweis, true); else meldung('Gelöscht');
   }).catch(function (e) {
-    delete geloescht[id];
+    ids.forEach(function (i) { delete geloescht[i]; });
     fehler(e); neuLaden();
   });
 }
 
 /* ---- Aktionen je Einheit (Einzelmedikament oder Gruppe) ---- */
-function addTage(datum, n) {
-  var a = datum.split('-').map(Number);
-  var d = new Date(Date.UTC(a[0], a[1] - 1, a[2]) + n * 86400000);
-  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
-}
-
 function lieferung(key) {
   var u = findeEinheit(key);
-  var ms = u.mitglieder.filter(function (m) { return u.aktiveIds.indexOf(m.id) >= 0; });
+  var ms = u.mitglieder.filter(function (m) { return m.aktiv && artVon(m) === 'rezept'; });
   var ohne = ms.filter(function (m) { return !m.reichweite; });
   if (ohne.length) {
     meldung('Bitte zuerst eine Reichweite (Tage) hinterlegen: ' + ohne.map(function (m) { return m.name; }).join(', '), true);
@@ -822,6 +1066,35 @@ function lieferung(key) {
   });
 }
 
+// "Erledigt": mit Wiederholung rückt das Datum um die Monate weiter, sonst wird die Aufgabe inaktiv
+function erledigt(ids, name) {
+  var ms = ids.map(finde).filter(function (m) { return m && m.aktiv && artVon(m) === 'aufgabe'; });
+  if (!ms.length) { meldung('Keine offene Aufgabe.', true); return; }
+  var stamps = {};
+  ms.forEach(function (m) {
+    var n = Number(m.wiederholung);
+    var patch;
+    if (n > 0) {
+      var naechste = m.frist ? addMonate(m.frist, n) : addMonate(state.heute, n);
+      if (naechste <= state.heute) naechste = addMonate(state.heute, n);
+      patch = { frist: naechste };
+    } else {
+      patch = { aktiv: false };
+    }
+    stamps[m.id] = markOptimistic(m.id, patch);
+  });
+  applyOptimistic();
+  render();
+  meldung('Erledigt');
+  call('erledigt', { ids: ms.map(function (m) { return m.id; }) }).then(function (s) {
+    ms.forEach(function (m) { clearOptimistic(m.id, stamps[m.id]); });
+    setState(s);
+  }).catch(function (e) {
+    ms.forEach(function (m) { clearOptimistic(m.id, stamps[m.id]); });
+    fehler(e); neuLaden();
+  });
+}
+
 function einzelmail(key) {
   var u = findeEinheit(key);
   if (!confirm('Mail für "' + u.name + '" jetzt an deine Outlook-Adresse senden?')) return;
@@ -829,6 +1102,14 @@ function einzelmail(key) {
   call('einzelmail', { ids: u.aktiveIds }).then(function (s) {
     setState(s);
     meldung('Mail für "' + u.name + '" gesendet');
+  }).catch(fehler);
+}
+
+function kalenderAbgleich() {
+  meldung('Kalender wird abgeglichen …');
+  call('kalender').then(function (s) {
+    setState(s);
+    meldung(s && s.kalender && s.kalender.verbunden ? 'Kalender abgeglichen' : 'Kalender nicht erreichbar', !(s && s.kalender && s.kalender.verbunden));
   }).catch(fehler);
 }
 
