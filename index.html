@@ -147,6 +147,13 @@
   input.schalter:checked { background: var(--acc); }
   input.schalter:checked::after { left: 23px; }
   .personen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .bestandzeile { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+  .bestandzeile svg { margin-top: 2px; }
+  .bestandzeile.null { color: #a1173f; }
+  .lm { background: var(--flaeche); border-radius: 14px; padding: 12px 14px; margin-top: 12px; }
+  .lm input[type=number] { background: #fff; }
+  .vorschau { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--past-t); }
+  .vorschau.fehler { color: #a1173f; }
   .person { height: 40px; padding: 0 14px; border-radius: 999px; background: #fff; color: var(--ink); font-size: 14px; font-weight: 600;
     border: 1px solid var(--linie); display: inline-flex; align-items: center; gap: 6px; }
   .person[aria-pressed="true"] { background: var(--past); border-color: var(--past); color: var(--past-t); }
@@ -241,7 +248,20 @@
     <div data-for="rezept"><label for="f_beginn">Beginn</label><input type="date" id="f_beginn"></div>
     <div><label for="f_frist" id="l_frist">Fristende</label><input type="date" id="f_frist"></div>
   </div>
-  <div data-for="rezept"><label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1" inputmode="numeric"></div>
+  <div data-for="rezept" class="vb" id="bestandBlock">
+    <div class="vbtitel">Bestand</div>
+    <div class="zeile">
+      <div><label for="f_bestand">Vorhanden</label><input type="number" id="f_bestand" min="0" step="any" inputmode="decimal"></div>
+      <div><label for="f_einheit">Einheit</label><input type="text" id="f_einheit" list="einheiten" autocomplete="off"><datalist id="einheiten"><option value="Tabletten"></option><option value="Kapseln"></option><option value="ml"></option><option value="Stück"></option><option value="Packungen"></option></datalist></div>
+    </div>
+    <div class="zeile">
+      <div><label for="f_verbrauch">Verbrauch pro Tag</label><input type="number" id="f_verbrauch" min="0" step="any" inputmode="decimal"></div>
+      <div><label for="f_standardmenge">Standardmenge je Lieferung</label><input type="number" id="f_standardmenge" min="0" step="any" inputmode="decimal"></div>
+    </div>
+    <p class="info" id="bestandVorschau" style="margin:10px 0 0"></p>
+    <p class="info" style="margin:6px 0 0">Ändern sich „Vorhanden“ oder der Verbrauch, wird das Fristende neu berechnet.</p>
+  </div>
+  <div data-for="rezept"><label for="f_reichweite">Reichweite (Tage, nur ohne Tagesverbrauch)</label><input type="number" id="f_reichweite" min="1" inputmode="numeric"></div>
   <div data-for="aufgabe"><label for="f_wiederholung">Wiederholung alle (Monate, leer = einmalig)</label><input type="number" id="f_wiederholung" min="1" inputmode="numeric"></div>
   <div class="zeile" data-for="termin">
     <div><label for="f_von">Von</label><input type="time" id="f_von"></div>
@@ -271,6 +291,14 @@
     <button class="pill gefahr" id="btnLoeschen" onclick="loesche()">Löschen</button>
     <button class="pill primaer" onclick="speichere()" id="btnSpeichern">Speichern</button>
   </div>
+</div></div>
+
+<div id="lieferung" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="lTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="lTitel">Neue Lieferung</h2><button class="rund klein" aria-label="Schließen" onclick="schliesseLieferung()"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <p class="info" id="lUnter" style="margin-top:8px">Menge, die angekommen ist. Vorbelegt mit der Standardmenge, bitte bei Abweichung anpassen.</p>
+  <div id="lieferInhalt"></div>
+  <div class="blattfuss"><button class="pill primaer" id="btnLiefern" onclick="liefereEin()">Eintragen</button></div>
 </div></div>
 
 <div id="zugang" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="zTitel">
@@ -583,6 +611,30 @@ function tagTitel(datum) {
   return WOCHENTAGE[new Date(tagNr(datum) * 86400000).getUTCDay()] + ' ' + datumDe(datum);
 }
 
+/* ---- Bestand ---- */
+function zahlText(n) { return String(Math.round(n * 10) / 10).replace('.', ','); }
+function zahlEingabe(t) {   // "1,5" oder "1.5" -> Zahl, leer -> null, ungültig -> NaN
+  t = String(t === undefined || t === null ? '' : t).trim();
+  return t === '' ? null : Number(t.replace(',', '.'));
+}
+// Bestand heute: eingetragener Bestand minus Tagesverbrauch seit dem Stand-Datum (nie unter 0). Ohne Verbrauch: unverändert.
+function bestandJetzt(m, heute) {
+  if (m.bestand === '' || m.bestand === undefined || m.bestand === null) return null;
+  var b = Number(m.bestand), v = Number(m.verbrauch) || 0;
+  if (!(v > 0) || !m.bestandStand) return b;
+  var tage = Math.max(0, tagNr(heute) - tagNr(m.bestandStand));
+  return Math.max(0, Math.round((b - v * tage) * 10) / 10);
+}
+function fristAusBestand(bestand, verbrauch, ab) { return addTage(ab, Math.floor(bestand / verbrauch + 1e-9)); }
+function bestandText(m) {
+  var b = bestandJetzt(m, state.heute);
+  return b === null ? null : zahlText(b) + (m.einheit ? ' ' + m.einheit : '');
+}
+function dosisLabel(m) {
+  var x = /(\d+(?:[.,]\d+)?\s*(?:mg|µg|mcg|g|ml))/i.exec(m.name);
+  return x ? x[1].replace(/\s+/g, ' ') : m.name;
+}
+
 /* ---- Einheiten: Gruppen zusammenfassen ---- */
 function artVon(m) { return m.art === 'aufgabe' || m.art === 'termin' ? m.art : 'rezept'; }
 
@@ -845,6 +897,13 @@ var ART_NAME = { rezept: 'Rezept', aufgabe: 'Aufgabe', termin: 'Termin' };
 function mitgliedZeilen(m, mitDatum) {
   var art = artVon(m), z = '';
   if (art === 'rezept') {
+    var bt = bestandText(m);
+    if (bt !== null) {
+      var zusatz = m.bestandStand && Number(m.verbrauch) > 0
+        ? 'eingetragen: ' + zahlText(Number(m.bestand)) + ' am ' + datumDe(m.bestandStand) + ' · Verbrauch ' + zahlText(Number(m.verbrauch)) + ' pro Tag' : '';
+      z += wert('Bestand', bt + (zusatz ? ' (' + zusatz + ')' : ''));
+    }
+    z += m.standardmenge !== '' && m.standardmenge !== undefined ? wert('Standardmenge je Lieferung', zahlText(Number(m.standardmenge)) + (m.einheit ? ' ' + m.einheit : '')) : '';
     z += (m.text ? wert('Mail-Text', m.text) : '') + (m.foto ? wert('Foto', 'wird angehängt') : '');
   } else if (art === 'aufgabe') {
     if (mitDatum && m.frist) z += wert('Fällig', datumDe(m.frist));
@@ -883,6 +942,17 @@ function sortierteEinheiten() {
   return liste.sort(function (x, y) { return x.reihe - y.reihe; });
 }
 
+// Zähler auf der Karte: eine Zahl mit Einheit, bei Gruppen je Mitglied (z. B. "500 mg: 56 Tabletten · 100 mg: 112 Kapseln")
+function bestandZeile(u) {
+  var ms = u.mitglieder.filter(function (m) { return artVon(m) === 'rezept' && (u.aktiv ? m.aktiv : true) && bestandText(m) !== null; });
+  if (!ms.length) return '';
+  var text = ms.length === 1 && !u.gruppe ? bestandText(ms[0])
+    : ms.map(function (m) { return esc(dosisLabel(m)) + ': ' + esc(bestandText(m)); }).join(' · ');
+  if (ms.length === 1 && !u.gruppe) text = esc(text);
+  var leer = ms.every(function (m) { return bestandJetzt(m, state.heute) <= 0; });
+  return '<span class="bestandzeile' + (leer ? ' null' : '') + '">' + ico(I_BOX, 15) + '<span>' + text + '</span></span>';
+}
+
 function karteHtml(u) {
   var auf = !!offen[u.key], k = esc(u.key), info = kopfInfo(u);
   var chip = '';
@@ -919,7 +989,8 @@ function karteHtml(u) {
       '<button class="griff" aria-label="Verschieben: ' + esc(u.name) + ' (ziehen oder Pfeiltasten hoch und runter)" title="Ziehen zum Sortieren">' + GRIFF_SVG + '</button>' +
       '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
         '<span class="kt"><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span>' +
-          '<span class="metazeile"><span class="status st-' + info.klasse + '">' + esc(info.status) + '</span><span class="meta">' + esc(info.meta) + '</span></span></span>' +
+          '<span class="metazeile"><span class="status st-' + info.klasse + '">' + esc(info.status) + '</span><span class="meta">' + esc(info.meta) + '</span></span>' +
+          bestandZeile(u) + '</span>' +
         ico(auf ? I_AUF : I_AB, 20, '#6e6875') + '</button>' +
     '</div>' +
     ((chip || knopf) ? '<div class="zeile2">' + chip + knopf + '</div>' : '') +
@@ -1108,7 +1179,7 @@ function finde(id) {
   return state.medikamente.filter(function (m) { return m.id === id; })[0];
 }
 function formularOffen() {
-  return $('overlay').style.display === 'block' || $('zugang').style.display === 'block';
+  return $('overlay').style.display === 'block' || $('zugang').style.display === 'block' || $('lieferung').style.display === 'block';
 }
 
 // Zeigt nur die Felder, die zur gewählten Art gehören
@@ -1166,6 +1237,20 @@ function personName(email) {
   return p ? p.name : email;
 }
 
+var bestandOrig = '', verbrauchOrig = '';
+// Vorschau: neues Fristende, wenn "Vorhanden" oder der Verbrauch geändert wurde
+function zeigeBestandVorschau() {
+  var el = $('bestandVorschau');
+  var b = zahlEingabe($('f_bestand').value), v = zahlEingabe($('f_verbrauch').value);
+  var geaendert = String($('f_bestand').value).trim() !== bestandOrig || String($('f_verbrauch').value).trim() !== verbrauchOrig;
+  if (!geaendert || b === null || !(v > 0) || isNaN(b) || isNaN(v) || b < 0) { el.textContent = ''; return; }
+  var f = fristAusBestand(b, v, state.heute);
+  var n = tageBis(f);
+  el.textContent = 'Neues Fristende: ' + datumDe(f) + ' (' + (n === 1 ? 'in 1 Tag' : 'in ' + n + ' Tagen') + ')';
+}
+$('f_bestand').addEventListener('input', zeigeBestandVorschau);
+$('f_verbrauch').addEventListener('input', zeigeBestandVorschau);
+
 function fuelle(m) {
   var art = artVon(m);
   $('f_id').value = m.id || '';
@@ -1188,6 +1273,14 @@ function fuelle(m) {
   $('f_foto').checked = !!m.foto;
   $('f_behandlung').checked = !!m.behandlung;
   $('f_familie').checked = !!m.familie;
+  var bj = m.id ? bestandJetzt(m, state.heute) : null;
+  $('f_bestand').value = bj === null ? '' : String(bj);
+  bestandOrig = $('f_bestand').value;
+  verbrauchOrig = m.verbrauch === undefined || m.verbrauch === '' ? '' : String(m.verbrauch);
+  $('f_einheit').value = m.einheit || '';
+  $('f_verbrauch').value = verbrauchOrig;
+  $('f_standardmenge').value = m.standardmenge === undefined || m.standardmenge === '' ? '' : String(m.standardmenge);
+  zeigeBestandVorschau();
   $('familieName').textContent = state.familienName || 'Familie';
   zeichnePersonen(m.gaeste || []);
   $('f_aktiv').checked = m.aktiv !== false;
@@ -1237,6 +1330,7 @@ function speichere() {
     ort: art === 'termin' ? $('f_ort').value.trim() : '',
     foto: art === 'rezept' && $('f_foto').checked,
     behandlung: art === 'rezept' && $('f_behandlung').checked,
+    einheit: art === 'rezept' ? $('f_einheit').value.trim() : '',
     aktiv: $('f_aktiv').checked,
     notiz: $('f_notiz').value.trim()
   };
@@ -1255,6 +1349,31 @@ function speichere() {
   if (art !== 'rezept' && !m.frist) { meldung(art === 'termin' ? 'Datum fehlt.' : 'Fälligkeitsdatum fehlt.', true); return; }
   if (art === 'termin' && m.bis && m.von && m.bis < m.von) { meldung('Die Endzeit liegt vor der Startzeit.', true); return; }
 
+  // Bestand: Zahlen prüfen, Fristende wie auf dem Server neu berechnen
+  var alt = m.id ? finde(m.id) : null;
+  var bestandPatch = {};
+  if (art === 'rezept') {
+    var bz = zahlEingabe($('f_bestand').value), vz = zahlEingabe($('f_verbrauch').value), sz = zahlEingabe($('f_standardmenge').value);
+    if (isNaN(bz) || bz < 0) { meldung('Der Bestand ist ungültig.', true); return; }
+    if (isNaN(vz) || (vz !== null && vz < 0)) { meldung('Der Verbrauch pro Tag ist ungültig.', true); return; }
+    if (isNaN(sz) || (sz !== null && sz < 0)) { meldung('Die Standardmenge ist ungültig.', true); return; }
+    m.verbrauch = vz === null ? '' : vz;
+    m.standardmenge = sz === null ? '' : sz;
+    m.bestand = bz === null ? '' : bz;
+    m.bestandGeaendert = String($('f_bestand').value).trim() !== bestandOrig;
+    var vAlt = alt && alt.verbrauch !== '' ? Number(alt.verbrauch) : 0, vNeu = vz || 0;
+    var neuRechnen = false;
+    if (m.bestandGeaendert) {
+      if (bz === null) { bestandPatch = { bestand: '', bestandStand: '' }; }
+      else { bestandPatch = { bestand: bz, bestandStand: state.heute }; neuRechnen = true; }
+    } else if (alt && alt.bestand !== '' && vNeu !== vAlt) {
+      bestandPatch = { bestand: bestandJetzt(alt, state.heute), bestandStand: state.heute };   // bisherigen Verbrauch bis heute abrechnen
+      m.bestand = bestandPatch.bestand;
+      neuRechnen = true;
+    }
+    if (neuRechnen && bestandPatch.bestand !== '' && vNeu > 0) { m.frist = fristAusBestand(bestandPatch.bestand, vNeu, state.heute); }
+  } else { m.verbrauch = ''; m.standardmenge = ''; m.bestand = ''; m.bestandGeaendert = false; }
+
   var istNeu = !m.id;
   var hoechste = hoechsteReihenfolge();
   if (istNeu) { m.id = neueId(); m.reihenfolge = hoechste + 1; }
@@ -1262,8 +1381,14 @@ function speichere() {
   var gruppe = m.gruppe || (vb && vb.aktiv ? m.name : '');
   m.gruppe = gruppe;
   var patch = {};
-  for (var k in m) { if (m.hasOwnProperty(k) && k !== 'id') patch[k] = m[k]; }
+  for (var k in m) { if (m.hasOwnProperty(k) && k !== 'id' && k !== 'bestandGeaendert') patch[k] = m[k]; }
   if (!istNeu) delete patch.reihenfolge;
+  if (art === 'rezept') {
+    patch.bestand = m.bestand;
+    if (bestandPatch.hasOwnProperty('bestandStand')) patch.bestandStand = bestandPatch.bestandStand;
+    else if (istNeu) patch.bestandStand = '';
+    else delete patch.bestandStand;
+  }
   var stamps = {};
   stamps[m.id] = markOptimistic(m.id, patch, istNeu);
 
@@ -1318,28 +1443,87 @@ function loesche() {
 }
 
 /* ---- Aktionen je Einheit (Einzelmedikament oder Gruppe) ---- */
+// Lieferung eintragen: Menge je Medikament (vorbelegt mit der Standardmenge), Vorschau auf Bestand und Fristende
+var lieferKontext = null;
 function lieferung(key) {
   var u = findeEinheit(key);
   var ms = u.mitglieder.filter(function (m) { return m.aktiv && artVon(m) === 'rezept'; });
-  var ohne = ms.filter(function (m) { return !m.reichweite; });
-  if (ohne.length) {
-    meldung('Bitte zuerst eine Reichweite (Tage) hinterlegen: ' + ohne.map(function (m) { return m.name; }).join(', '), true);
-    return;
+  if (!ms.length) return;
+  lieferKontext = { key: key, ms: ms };
+  $('lTitel').textContent = 'Neue Lieferung';
+  $('lUnter').textContent = u.name + ': Menge, die angekommen ist. Vorbelegt mit der Standardmenge, bitte bei Abweichung anpassen.';
+  $('lieferInhalt').innerHTML = ms.map(function (m) {
+    var bt = bestandText(m);
+    var einheit = m.einheit ? ' (' + esc(m.einheit) + ')' : '';
+    return '<div class="lm">' +
+      '<div class="mname">' + esc(m.name) + '</div>' +
+      '<div class="eu">' + (bt !== null ? 'Aktuell vorhanden: ' + esc(bt) : 'Kein Bestand eingetragen') + '</div>' +
+      '<label for="lm_' + esc(m.id) + '">Erhaltene Menge' + einheit + '</label>' +
+      '<input type="number" id="lm_' + esc(m.id) + '" data-id="' + esc(m.id) + '" min="0" step="any" inputmode="decimal" value="' +
+        (m.standardmenge === '' || m.standardmenge === undefined ? '' : esc(m.standardmenge)) + '">' +
+      '<div class="vorschau" id="lv_' + esc(m.id) + '"></div></div>';
+  }).join('');
+  ms.forEach(function (m) { zeigeLieferVorschau(m); });
+  $('lieferung').style.display = 'block';
+}
+function schliesseLieferung() { $('lieferung').style.display = 'none'; lieferKontext = null; }
+
+// Ergebnis für ein Medikament: { neu, frist } oder { fehler }
+function lieferErgebnis(m, mengeText) {
+  var v = Number(m.verbrauch) || 0;
+  var aktuell = bestandJetzt(m, state.heute); if (aktuell === null) aktuell = 0;
+  var menge = zahlEingabe(mengeText);
+  if (isNaN(menge) || (menge !== null && menge < 0)) return { fehler: 'Ungültige Menge.' };
+  if (v > 0) {
+    if (menge === null) return { fehler: 'Bitte eine Menge eintragen.' };
+    var neu = Math.round((aktuell + menge) * 10) / 10;
+    return { neu: neu, frist: fristAusBestand(neu, v, state.heute) };
   }
-  var frage = u.gruppe
-    ? 'Neue Lieferung für "' + u.name + '" (' + ms.map(function (m) { return m.name; }).join(', ') + '): Beginn auf heute, Fristende je Medikament auf heute + Reichweite setzen?'
-    : 'Neue Lieferung für "' + u.name + '": Beginn auf heute und Fristende auf heute + ' + ms[0].reichweite + ' Tage setzen?';
-  if (!confirm(frage)) return;
+  if (m.reichweite !== '' && m.reichweite !== undefined) {
+    var neu2 = menge !== null ? Math.round((aktuell + menge) * 10) / 10 : (m.bestand !== '' ? aktuell : null);
+    return { neu: neu2, frist: addTage(state.heute, Number(m.reichweite)) };
+  }
+  return { fehler: 'Bitte zuerst Tagesverbrauch oder Reichweite eintragen (Bearbeiten).' };
+}
+function zeigeLieferVorschau(m) {
+  var inp = $('lm_' + m.id), el = $('lv_' + m.id);
+  var r = lieferErgebnis(m, inp.value);
+  el.className = 'vorschau' + (r.fehler ? ' fehler' : '');
+  el.textContent = r.fehler ? r.fehler
+    : (r.neu !== null && r.neu !== undefined ? 'Danach ' + zahlText(r.neu) + (m.einheit ? ' ' + m.einheit : '') + ' · ' : '') + 'reicht bis ' + datumDe(r.frist);
+}
+$('lieferInhalt').addEventListener('input', function (e) {
+  var id = e.target && e.target.getAttribute ? e.target.getAttribute('data-id') : null;
+  if (!id || !lieferKontext) return;
+  var m = lieferKontext.ms.filter(function (x) { return x.id === id; })[0];
+  if (m) zeigeLieferVorschau(m);
+});
+$('lieferung').addEventListener('click', function (e) { if (e.target === $('lieferung')) schliesseLieferung(); });
+
+function liefereEin() {
+  if (!lieferKontext) return;
+  var ms = lieferKontext.ms, eintraege = [], ergebnisse = {};
+  for (var i = 0; i < ms.length; i++) {
+    var text = $('lm_' + ms[i].id).value;
+    var r = lieferErgebnis(ms[i], text);
+    if (r.fehler) { meldung(ms[i].name + ': ' + r.fehler, true); return; }
+    ergebnisse[ms[i].id] = r;
+    eintraege.push({ id: ms[i].id, menge: String(text).trim() });
+  }
   var stamps = {};
   ms.forEach(function (m) {
-    stamps[m.id] = markOptimistic(m.id, { beginn: state.heute, frist: addTage(state.heute, Number(m.reichweite)) });
+    var r = ergebnisse[m.id];
+    var patch = { beginn: state.heute, frist: r.frist };
+    if (r.neu !== null && r.neu !== undefined) { patch.bestand = r.neu; patch.bestandStand = state.heute; }
+    stamps[m.id] = markOptimistic(m.id, patch);
   });
+  schliesseLieferung();
   applyOptimistic();
   render();
-  call('lieferung', { ids: ms.map(function (m) { return m.id; }) }).then(function (s) {
+  call('lieferung', { lieferungen: eintraege }).then(function (s) {
     ms.forEach(function (m) { clearOptimistic(m.id, stamps[m.id]); });
     setState(s);
-    meldung('Neue Lieferung eingetragen');
+    meldung('Lieferung eingetragen');
   }).catch(function (e) {
     ms.forEach(function (m) { clearOptimistic(m.id, stamps[m.id]); });
     fehler(e); neuLaden();
