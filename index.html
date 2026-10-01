@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Medikamente</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Roboto, Arial, sans-serif; margin: 0; background: #f4f5f7; color: #1c1e21; }
+  header { background: #1f4e79; color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  main { max-width: 720px; margin: 0 auto; padding: 12px; }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 9px 14px; background: #1f4e79; color: #fff; cursor: pointer; }
+  button.sek { background: #e3e6ea; color: #1c1e21; }
+  button.gefahr { background: #b3261e; }
+  button:disabled { opacity: .5; }
+  .karte { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px; border-left: 6px solid #9aa0a6; }
+  .karte.rot { border-left-color: #b3261e; }
+  .karte.orange { border-left-color: #e08a00; }
+  .karte.gruen { border-left-color: #2e7d32; }
+  .karte.inaktiv { opacity: .55; }
+  .name { font-weight: 600; font-size: 16px; }
+  .frist { font-size: 14px; margin: 2px 0 6px; }
+  .info { font-size: 13px; color: #5f6368; margin: 2px 0; white-space: pre-wrap; }
+  .aktionen { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .box { background: #fff; border-radius: 10px; padding: 12px; margin-top: 16px; }
+  .box h2 { font-size: 15px; margin: 0 0 8px; }
+  label { display: block; font-size: 13px; margin: 10px 0 3px; color: #444; }
+  input[type=text], input[type=number], input[type=date], textarea {
+    width: 100%; font: inherit; padding: 8px; border: 1px solid #c4c7cc; border-radius: 6px; background: #fff; }
+  textarea { min-height: 70px; }
+  .zeile { display: flex; gap: 10px; }
+  .zeile > div { flex: 1; }
+  .check { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 14px; }
+  #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); overflow-y: auto; padding: 12px; }
+  #formular { background: #fff; max-width: 560px; margin: 10px auto; border-radius: 12px; padding: 14px; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #202124; color: #fff;
+    padding: 10px 16px; border-radius: 8px; display: none; max-width: 90%; z-index: 10; }
+  #toast.fehler { background: #b3261e; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Medikamente</h1>
+  <div style="display:flex;gap:8px">
+    <button class="sek" onclick="zeigeZugang()">Zugang</button>
+    <button class="sek" onclick="neu()">+ Neu</button>
+  </div>
+</header>
+<main>
+  <div id="liste">Lädt …</div>
+
+  <div class="box">
+    <h2>Erinnerungen</h2>
+    <div class="zeile">
+      <div><label for="vorlauf">Vorlauf vor Fristende (Tage)</label><input type="number" id="vorlauf" min="0"></div>
+      <div><label for="buendel">Bündelungsfenster (Tage)</label><input type="number" id="buendel" min="0"></div>
+    </div>
+    <div class="aktionen">
+      <button onclick="speichereEinst()">Einstellungen speichern</button>
+      <button class="sek" onclick="testmail()">Testmail senden</button>
+    </div>
+  </div>
+</main>
+
+<div id="overlay"><div id="formular">
+  <h2 id="formTitel" style="margin-top:0"></h2>
+  <input type="hidden" id="f_id">
+  <label for="f_name">Medikament</label><input type="text" id="f_name">
+  <label for="f_dosierung">Dosierung</label><textarea id="f_dosierung"></textarea>
+  <label for="f_text">Text für die Mail an das KID (z. B. "1x 100 Stück ...")</label><textarea id="f_text"></textarea>
+  <div class="zeile">
+    <div><label for="f_frist">Fristende</label><input type="date" id="f_frist"></div>
+    <div><label for="f_reichweite">Reichweite (Tage)</label><input type="number" id="f_reichweite" min="1"></div>
+  </div>
+  <div class="check"><input type="checkbox" id="f_foto"><label for="f_foto" style="margin:0">Foto aus Drive anhängen</label></div>
+  <div class="check"><input type="checkbox" id="f_aktiv"><label for="f_aktiv" style="margin:0">Aktiv (Erinnerung an)</label></div>
+  <label for="f_notiz">Notiz</label><textarea id="f_notiz"></textarea>
+  <div class="aktionen">
+    <button onclick="speichere()" id="btnSpeichern">Speichern</button>
+    <button class="sek" onclick="schliesse()">Abbrechen</button>
+    <button class="gefahr" id="btnLoeschen" onclick="loesche()">Löschen</button>
+  </div>
+</div></div>
+<div id="zugang" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);overflow-y:auto;padding:12px;z-index:5">
+  <div style="background:#fff;max-width:560px;margin:10px auto;border-radius:12px;padding:14px">
+    <h2 style="margin-top:0">Zugang einrichten</h2>
+    <p class="info">Wird nur auf diesem Gerät im Browser gespeichert.</p>
+    <label for="z_url">Web-App-URL (endet auf /exec)</label><input type="text" id="z_url" autocomplete="off">
+    <label for="z_key">Zugangsschlüssel</label><input type="text" id="z_key" autocomplete="off">
+    <div class="aktionen">
+      <button onclick="speichereZugang()">Speichern</button>
+      <button class="sek" id="z_abbruch" onclick="$('zugang').style.display='none'">Abbrechen</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+var state = { medikamente: [], einstellungen: { vorlauf: 7, buendel: 14 }, heute: '' };
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function $(id) { return document.getElementById(id); }
+
+function meldung(text, fehler) {
+  var t = $('toast');
+  t.textContent = text;
+  t.className = fehler ? 'fehler' : '';
+  t.style.display = 'block';
+  setTimeout(function () { t.style.display = 'none'; }, fehler ? 6000 : 2500);
+}
+function fehler(e) { meldung(e && e.message ? e.message : String(e), true); }
+
+/* ---- Zugang (nur im Browser dieses Geräts gespeichert) ---- */
+function zugang() {
+  try {
+    return { url: localStorage.getItem('med_url') || '', key: localStorage.getItem('med_key') || '' };
+  } catch (e) { return { url: '', key: '' }; }
+}
+function zeigeZugang() {
+  var z = zugang();
+  $('z_url').value = z.url;
+  $('z_key').value = z.key;
+  $('z_abbruch').style.display = (z.url && z.key) ? '' : 'none';
+  $('zugang').style.display = 'block';
+}
+function speichereZugang() {
+  var url = $('z_url').value.trim(), key = $('z_key').value.trim();
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { meldung('Die URL muss auf /exec enden.', true); return; }
+  if (!key) { meldung('Zugangsschlüssel fehlt.', true); return; }
+  try {
+    localStorage.setItem('med_url', url);
+    localStorage.setItem('med_key', key);
+  } catch (e) { meldung('Der Browser erlaubt kein Speichern (privater Modus?).', true); return; }
+  $('zugang').style.display = 'none';
+  laden();
+}
+
+/* ---- API-Aufruf ---- */
+function api(aktion, daten) {
+  var z = zugang();
+  if (!z.url || !z.key) { zeigeZugang(); return Promise.reject(new Error('Bitte zuerst den Zugang einrichten.')); }
+  // text/plain (Standard bei String-Body) vermeidet einen CORS-Preflight, den Apps Script nicht beantwortet
+  return fetch(z.url, { method: 'POST', body: JSON.stringify({ key: z.key, aktion: aktion, daten: daten || {} }) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (!j.ok) throw new Error(j.fehler || 'Unbekannter Fehler');
+      return j.daten;
+    })
+    .catch(function (e) {
+      if (e instanceof TypeError) throw new Error('Keine Verbindung zum Server. URL und Bereitstellung prüfen.');
+      throw e;
+    });
+}
+
+function laden() {
+  api('lade').then(function (d) {
+    state = d;
+    $('vorlauf').value = d.einstellungen.vorlauf;
+    $('buendel').value = d.einstellungen.buendel;
+    render();
+  }).catch(function (e) {
+    $('liste').textContent = 'Daten konnten nicht geladen werden.';
+    fehler(e);
+    if (/Zugangsschl/.test(e.message)) zeigeZugang();
+  });
+}
+
+function tageBis(frist) {
+  if (!frist) return null;
+  var a = frist.split('-').map(Number), b = state.heute.split('-').map(Number);
+  return Math.round((new Date(a[0], a[1] - 1, a[2]) - new Date(b[0], b[1] - 1, b[2])) / 86400000);
+}
+function datumDe(frist) {
+  var a = frist.split('-');
+  return a[2] + '.' + a[1] + '.' + a[0];
+}
+
+function render() {
+  var liste = state.medikamente.slice().sort(function (x, y) {
+    if (!x.frist && !y.frist) return x.name.localeCompare(y.name);
+    if (!x.frist) return 1;
+    if (!y.frist) return -1;
+    return x.frist < y.frist ? -1 : x.frist > y.frist ? 1 : 0;
+  });
+  if (liste.length === 0) { $('liste').innerHTML = '<p>Noch keine Einträge. Oben rechts auf "+ Neu".</p>'; return; }
+  $('liste').innerHTML = liste.map(function (m) {
+    var d = tageBis(m.frist), klasse = '', text = 'keine Frist hinterlegt';
+    if (d !== null) {
+      text = 'Frist ' + datumDe(m.frist) + ' · ' +
+        (d < 0 ? 'seit ' + (-d) + ' Tagen abgelaufen' : d === 0 ? 'heute' : 'in ' + d + ' Tagen');
+      klasse = d < 0 ? 'rot' : d <= state.einstellungen.vorlauf + state.einstellungen.buendel ? 'orange' : 'gruen';
+    }
+    return '<div class="karte ' + klasse + (m.aktiv ? '' : ' inaktiv') + '">' +
+      '<div class="name">' + esc(m.name) + (m.aktiv ? '' : ' (inaktiv)') + '</div>' +
+      '<div class="frist">' + esc(text) + '</div>' +
+      (m.dosierung ? '<div class="info">Dosierung: ' + esc(m.dosierung) + '</div>' : '') +
+      '<div class="info">Mail-Text: ' + esc(m.text) + '</div>' +
+      (m.foto ? '<div class="info">Foto wird angehängt</div>' : '') +
+      (m.notiz ? '<div class="info">' + esc(m.notiz) + '</div>' : '') +
+      '<div class="aktionen">' +
+        '<button onclick="bearbeite(\'' + esc(m.id) + '\')">Bearbeiten</button>' +
+        '<button class="sek" onclick="lieferung(\'' + esc(m.id) + '\')">Neue Lieferung erhalten</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function finde(id) {
+  return state.medikamente.filter(function (m) { return m.id === id; })[0];
+}
+
+function fuelle(m) {
+  $('f_id').value = m.id || '';
+  $('f_name').value = m.name || '';
+  $('f_dosierung').value = m.dosierung || '';
+  $('f_text').value = m.text || '';
+  $('f_frist').value = m.frist || '';
+  $('f_reichweite').value = m.reichweite === undefined ? '' : m.reichweite;
+  $('f_foto').checked = !!m.foto;
+  $('f_aktiv').checked = m.aktiv !== false;
+  $('f_notiz').value = m.notiz || '';
+  $('overlay').style.display = 'block';
+}
+function neu() {
+  $('formTitel').textContent = 'Neues Medikament';
+  $('btnLoeschen').style.display = 'none';
+  fuelle({});
+}
+function bearbeite(id) {
+  $('formTitel').textContent = 'Bearbeiten';
+  $('btnLoeschen').style.display = '';
+  fuelle(finde(id));
+}
+function schliesse() { $('overlay').style.display = 'none'; }
+
+function speichere() {
+  var m = {
+    id: $('f_id').value,
+    name: $('f_name').value,
+    dosierung: $('f_dosierung').value,
+    text: $('f_text').value,
+    frist: $('f_frist').value,
+    reichweite: $('f_reichweite').value,
+    foto: $('f_foto').checked,
+    aktiv: $('f_aktiv').checked,
+    notiz: $('f_notiz').value
+  };
+  $('btnSpeichern').disabled = true;
+  api('speichere', { medikament: m }).then(function () {
+    $('btnSpeichern').disabled = false;
+    schliesse(); meldung('Gespeichert'); laden();
+  }).catch(function (e) {
+    $('btnSpeichern').disabled = false; fehler(e);
+  });
+}
+
+function loesche() {
+  var m = finde($('f_id').value);
+  if (!m || !confirm('"' + m.name + '" wirklich löschen?')) return;
+  api('loesche', { id: m.id }).then(function () {
+    schliesse(); meldung('Gelöscht'); laden();
+  }).catch(fehler);
+}
+
+function lieferung(id) {
+  var m = finde(id);
+  if (!m.reichweite) { meldung('Bitte zuerst eine Reichweite (Tage) hinterlegen.', true); return; }
+  if (!confirm('Neue Lieferung für "' + m.name + '": Fristende auf heute + ' + m.reichweite + ' Tage setzen?')) return;
+  api('lieferung', { id: id }).then(function (neu) {
+    meldung('Neues Fristende: ' + datumDe(neu)); laden();
+  }).catch(fehler);
+}
+
+function speichereEinst() {
+  api('einstellungen', { vorlauf: $('vorlauf').value, buendel: $('buendel').value }).then(function () {
+    meldung('Einstellungen gespeichert'); laden();
+  }).catch(fehler);
+}
+
+function testmail() {
+  meldung('Testmail wird gesendet …');
+  api('testmail').then(function () { meldung('Testmail gesendet'); }).catch(fehler);
+}
+
+if (zugang().url && zugang().key) { laden(); } else { zeigeZugang(); }
+</script>
+</body>
+</html>
