@@ -225,6 +225,7 @@
   </div>
   <label for="f_name" id="l_name">Medikament</label><input type="text" id="f_name">
   <label for="f_gruppe">Gruppe (optional, z. B. "Slenyto")</label><input type="text" id="f_gruppe" list="gruppen" autocomplete="off"><datalist id="gruppen"></datalist>
+  <div data-for="rezept" class="schalterzeile"><label for="f_behandlung">Behandlung<div class="eu">z. B. Logopädie, Ergotherapie (Mail sagt „Folgerezept“)</div></label><input type="checkbox" class="schalter" id="f_behandlung"></div>
   <div data-for="rezept"><label for="f_dosierung">Dosierung</label><textarea id="f_dosierung"></textarea></div>
   <div data-for="rezept aufgabe"><label for="f_text" id="l_text">Text für die Mail an das KID</label><textarea id="f_text"></textarea></div>
   <div class="zeile">
@@ -1037,6 +1038,7 @@ function fuelle(m) {
   $('f_vb_tage').value = vb ? vb.tage : 14;
   $('f_vb_text').value = vb ? vb.text : '';
   $('f_foto').checked = !!m.foto;
+  $('f_behandlung').checked = !!m.behandlung;
   $('f_aktiv').checked = m.aktiv !== false;
   $('f_notiz').value = m.notiz || '';
   setzeArt(art);
@@ -1083,6 +1085,7 @@ function speichere() {
     bis: art === 'termin' ? $('f_bis').value : '',
     ort: art === 'termin' ? $('f_ort').value.trim() : '',
     foto: art === 'rezept' && $('f_foto').checked,
+    behandlung: art === 'rezept' && $('f_behandlung').checked,
     aktiv: $('f_aktiv').checked,
     notiz: $('f_notiz').value.trim()
   };
