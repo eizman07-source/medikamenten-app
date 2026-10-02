@@ -379,21 +379,35 @@ var lastAppliedSeq = 0;
 var pendingMutations = 0;     // laufende bzw. wartende schreibende Aufrufe
 var lastLocalAction = Date.now();
 
-function rawCall(aktion, daten) {
+var UNERWARTET = 'Google hat gerade nicht richtig geantwortet (das kommt gelegentlich vor).';
+function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+function rawCall(aktion, daten, versuch) {
+  versuch = versuch || 0;
   var z = zugang();
   if (!z.url || !z.key) { zeigeZugang(); return Promise.reject(new Error('Bitte zuerst den Zugang einrichten.')); }
   var seq = ++callSeq;
+  // Lesende Aufrufe ändern nichts und dürfen deshalb automatisch wiederholt werden
+  var wiederholbar = aktion === 'lade' || aktion === 'kalenderLesen' || aktion === 'kalender';
   // Bewusst KEIN Content-Type-Header (Standard text/plain): mit application/json würde der Browser einen
   // CORS-Preflight schicken, den Apps Script nicht beantwortet.
   return fetch(z.url, { method: 'POST', body: JSON.stringify({ key: z.key, aktion: aktion, daten: daten || {} }) })
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
+    // Antwort als Text lesen und selbst auswerten: Liefert Google gelegentlich eine HTML-Fehlerseite statt JSON,
+    // wirft r.json() in Safari nur die unverständliche Meldung "The string did not match the expected pattern".
+    .then(function (r) { return r.text(); })
+    .then(function (text) {
+      var j;
+      try { j = JSON.parse(text); } catch (err) { var u = new Error(UNERWARTET + ' Bitte noch einmal versuchen.'); u.unerwartet = true; throw u; }
       if (!j.ok) throw new Error(j.fehler || 'Unbekannter Fehler');
       if (j.state && typeof j.state === 'object') j.state.__seq = seq;
       return j.state;
     })
     .catch(function (e) {
-      if (e instanceof TypeError) throw new Error('Keine Verbindung zum Server. URL und Bereitstellung prüfen.');
+      var netz = e instanceof TypeError;
+      if (wiederholbar && (netz || (e && e.unerwartet)) && versuch < 2) {
+        return pause(1200 * (versuch + 1)).then(function () { return rawCall(aktion, daten, versuch + 1); });
+      }
+      if (netz) throw new Error('Keine Verbindung zum Server. URL und Bereitstellung prüfen.');
       throw e;
     });
 }
@@ -413,7 +427,11 @@ function call(aktion, daten) {
     settled = true;
     pendingMutations = Math.max(0, pendingMutations - 1);
   };
-  var result = mutationQueue.then(function () { return rawCall(aktion, daten); });
+  var result = mutationQueue.then(function () { return rawCall(aktion, daten); }).catch(function (e) {
+    // Bei einer unlesbaren Antwort ist unklar, ob der Server die Änderung noch ausgeführt hat
+    if (e && e.unerwartet) e.message = UNERWARTET + ' Die Liste wird neu geladen, bitte kurz prüfen, ob die Änderung angekommen ist.';
+    throw e;
+  });
   result.then(done, done);
   // Kette weiterlaufen lassen, auch wenn ein Aufruf scheitert oder hängt
   mutationQueue = new Promise(function (weiter) {
@@ -1078,7 +1096,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-02 · alle Balken sichtbar, eigene Farben';
+var APP_VERSION = '2026-10-02 · stabilere Serverantworten';
 function renderKopf() {
   $('versionText').textContent = 'Version ' + APP_VERSION;
   if (!state.heute) return;
