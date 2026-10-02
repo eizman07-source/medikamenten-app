@@ -688,6 +688,17 @@ function einheiten() {
     u.farbe = mitFarbe ? Number(mitFarbe.farbe) : -1;
     u.aufgabeIds = basis.filter(function (m) { return artVon(m) === 'aufgabe'; }).map(function (m) { return m.id; });
   });
+  // Hat der Server noch keine Farbe vergeben (z. B. alte Code.gs), bekommt jede Einheit vorläufig eine eigene Farbe,
+  // damit nie alle Balken gleich aussehen.
+  var belegt = liste.filter(function (u) { return u.taeglich && u.farbe >= 0; }).map(function (u) { return u.farbe; });
+  liste.forEach(function (u) {
+    if (!u.taeglich || u.farbe >= 0) return;
+    var f = -1;
+    for (var i = 0; i < PALETTE.length; i++) if (belegt.indexOf(i) < 0) { f = i; break; }
+    if (f < 0) f = belegt.length % PALETTE.length;
+    u.farbe = f;
+    belegt.push(f);
+  });
   return liste;
 }
 function statusKlasse(u) {
@@ -1067,7 +1078,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-02 · alle Balken sichtbar';
+var APP_VERSION = '2026-10-02 · alle Balken sichtbar, eigene Farben';
 function renderKopf() {
   $('versionText').textContent = 'Version ' + APP_VERSION;
   if (!state.heute) return;
