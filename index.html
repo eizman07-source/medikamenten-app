@@ -58,6 +58,12 @@
   .abschnitt h2 { margin: 0; font-size: 25px; font-weight: 300; }
   .abschnitt .anz { font-size: 16px; font-weight: 300; color: var(--grau); }
   .karte { position: relative; background: #fff; border: 1px solid var(--linie); border-radius: 18px; padding: 10px 12px 12px 6px; margin-bottom: 10px; }
+  /* Ampel: schmaler Streifen am linken Rand, Farbe nach Dringlichkeit */
+  .karte::before { content: ''; position: absolute; left: 0; top: 16px; bottom: 16px; width: 5px; border-radius: 0 4px 4px 0; background: #cfc9d4; }
+  .karte.amp-rot::before { background: #d64562; }
+  .karte.amp-orange::before { background: #f29a3d; }
+  .karte.amp-gruen::before { background: #4cb97e; }
+  .farbpunkt { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; margin-right: 8px; vertical-align: 1px; }
   .karte.dragging { opacity: .8; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 5; }
   .reihe { display: flex; align-items: center; gap: 4px; }
   .griff { flex: none; width: 30px; min-height: 44px; padding: 0; background: none; display: flex; align-items: center; justify-content: center;
@@ -96,11 +102,13 @@
 
   /* Kalender */
   .kalkarte { background: #fff; border: 1px solid var(--linie); border-radius: 20px; padding: 16px 12px 14px; }
-  .sync { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px;
-    font-size: 12px; font-weight: 600; background: var(--flaeche); color: var(--grau); }
-  .sync::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-  .sync.ok { background: #e1f5ea; color: #1d6b3f; }
-  .sync.fehler { background: #fde4ec; color: #a1173f; }
+  /* Abgleich mit dem Google Kalender als runder Punkt: grün = synchronisiert, rot = nicht, grau = gleicht ab */
+  .syncdot { width: 44px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; background: none; color: #b8b1be; }
+  .syncdot::before { content: ''; width: 11px; height: 11px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgba(184,177,190,.25); }
+  .syncdot.ok { color: #3aa66a; }
+  .syncdot.ok::before { box-shadow: 0 0 0 4px rgba(58,166,106,.22); }
+  .syncdot.fehler { color: #d64562; }
+  .syncdot.fehler::before { box-shadow: 0 0 0 4px rgba(214,69,98,.22); }
   .tagesliste { margin: 8px 4px 0; padding-top: 12px; border-top: 1px solid var(--linie); }
   .tagesliste .tk { font-size: 13px; font-weight: 700; }
   .tagesliste .te { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 15px; }
@@ -227,6 +235,7 @@
       </div>
     </div>
     <p class="info" style="margin:14px 4px">Änderungen werden sofort gespeichert.</p>
+    <p class="info" style="margin:6px 4px 0" id="versionText"></p>
   </div>
 </div>
 
@@ -672,6 +681,11 @@ function einheiten() {
     else u.dosis = rez.filter(function (m) { return m.dosierung; }).map(function (m) { return m.name + ': ' + m.dosierung; }).join('\n');
     u.aktiveIds = basis.map(function (m) { return m.id; });
     u.rezeptIds = rez.map(function (m) { return m.id; });
+    // Täglich gegeben = Verbrauch pro Tag eingetragen. Nur diese bekommen Farbe und Kalenderbalken.
+    var taegl = rez.filter(function (m) { return Number(m.verbrauch) > 0; });
+    u.taeglich = taegl.length > 0;
+    var mitFarbe = taegl.filter(function (m) { return m.farbe !== '' && m.farbe !== undefined; })[0];
+    u.farbe = mitFarbe ? Number(mitFarbe.farbe) : -1;
     u.aufgabeIds = basis.filter(function (m) { return artVon(m) === 'aufgabe'; }).map(function (m) { return m.id; });
   });
   return liste;
@@ -710,13 +724,32 @@ function kopfInfo(u) {
 var kalender = { jahr: null, monat: null, tag: null };
 var letzteKalender = '';
 var MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-var FARBEN = {
-  rot: ['#f6c4d3', '#5c0d24'],
-  orange: ['#ffd9b8', '#5a2e00'],
-  gruen: ['#c6ebd5', '#123d24']
-};
-var MAX_LANES = 2;
-var ZEILE_H = 70;
+// Farbe je Medikament (automatisch vergeben, Reihenfolge wie im Backend): Balkenhintergrund, Schrift, Punkt
+var PALETTE = [
+  ['#cfe5fa', '#123f66', '#5aa6e8'],   // Himmel
+  ['#fbd3e0', '#6b1634', '#ec7aa0'],   // Rosé
+  ['#fdf0b8', '#5c4a00', '#e6bf2e'],   // Gelb
+  ['#c9ecd6', '#14452a', '#4cb97e'],   // Mint
+  ['#e3d3f5', '#3f2166', '#a86fe0'],   // Flieder
+  ['#ffdcc2', '#6a3300', '#f0a063'],   // Pfirsich
+  ['#c4eceb', '#0e4a49', '#3ec1be'],   // Aqua
+  ['#ffd0c7', '#6b2112', '#f0725a']    // Koralle
+];
+// Gleiche Regel wie im Backend: die Farbe der Gruppe, sonst die nächste freie (alle belegt: von vorn)
+function naechsteFarbe(schluessel) {
+  var benutzt = {}, gefunden = -1;
+  state.medikamente.forEach(function (m) {
+    if (artVon(m) !== 'rezept' || !(Number(m.verbrauch) > 0) || m.farbe === '' || m.farbe === undefined) return;
+    var k = m.gruppe || m.id;
+    benutzt[k] = Number(m.farbe);
+    if (k === schluessel) gefunden = Number(m.farbe);
+  });
+  if (gefunden >= 0) return gefunden;
+  var belegt = Object.keys(benutzt).map(function (k) { return benutzt[k]; });
+  for (var i = 0; i < PALETTE.length; i++) if (belegt.indexOf(i) < 0) return i;
+  return belegt.length % PALETTE.length;
+}
+var BAHN_START = 32, BAHN_H = 18;   // Balken liegen in Bahnen untereinander, die Wochenzeile wächst mit der Zahl der Bahnen
 var BLAU = '#a64d9c', LILA = '#4b2367';   // Termin: Magenta-Flieder (Kreis), Aufgabe: dunkles Lila (Quadrat)
 
 function kalenderMonat(delta) {
@@ -777,11 +810,11 @@ function renderKalender() {
 
   // Ein Balken je Rezept-Einheit: Beginn bis frühestes Fristende
   var balken = einheiten().filter(function (u) {
-    return u.aktiv && u.beginn && u.rezeptFrist && tagNr(u.rezeptFrist) >= tagNr(u.beginn);
+    return u.aktiv && u.taeglich && u.beginn && u.rezeptFrist && tagNr(u.rezeptFrist) >= tagNr(u.beginn);
   }).map(function (u) {
-    var von = tagNr(u.beginn), bis = tagNr(u.rezeptFrist), d = bis - heuteNr;
-    var klasse = d < 0 ? 'rot' : d <= einst.vorlauf + einst.buendel ? 'orange' : 'gruen';
-    return { name: u.name, von: von, bis: bis, erinn: bis - einst.vorlauf, farbe: FARBEN[klasse], lane: -1 };
+    var von = tagNr(u.beginn), bis = tagNr(u.rezeptFrist);
+    var p = PALETTE[u.farbe >= 0 ? u.farbe : 0];
+    return { name: u.name, von: von, bis: bis, erinn: bis - einst.vorlauf, farbe: p, lane: -1 };
   }).filter(function (b) { return b.bis >= startNr && b.von <= endeNr; })
     .sort(function (a, b) { return a.von - b.von || a.name.localeCompare(b.name); });
 
@@ -794,13 +827,13 @@ function renderKalender() {
     b.lane = l;
   });
 
-  // Kleine Statusanzeige oben rechts: grün = mit Google Kalender synchronisiert, rot = nicht, grau = wird gerade abgeglichen
+  // Abgleich mit Google Kalender als runder Punkt oben rechts: grün = synchronisiert, rot = nicht, grau = gleicht ab. Tippen gleicht neu ab.
   var kal = state.kalender;
   var laedt = vorlaeufig === true || !kal || kal.geladen === false;
-  var syncKlasse = laedt ? '' : (kal.verbunden && vorlaeufig !== 'offline' ? ' ok' : ' fehler');
-  var syncText = laedt ? 'Gleicht ab …' : (kal.verbunden && vorlaeufig !== 'offline' ? 'Synchronisiert' + (kal.um ? ' · ' + esc(kal.um) : '') : 'Nicht synchronisiert');
-  var syncTitel = laedt ? 'Der Google Kalender wird gerade abgeglichen' : (kal.verbunden ? 'Mit dem Google Kalender synchronisiert. Tippen zum erneuten Abgleich.' : 'Tippen für den Grund und zum erneuten Abgleich');
-  var syncZeile = '<div style="display:flex;justify-content:flex-end;padding:0 4px 8px"><button class="sync' + syncKlasse + '" data-a="sync" title="' + syncTitel + '" aria-label="' + syncTitel + '">' + syncText + '</button></div>';
+  var ok = !laedt && kal.verbunden && vorlaeufig !== 'offline';
+  var syncKlasse = laedt ? '' : (ok ? ' ok' : ' fehler');
+  var syncTitel = laedt ? 'Google Kalender: gleicht ab …' : (ok ? 'Google Kalender: synchronisiert' + (kal.um ? ' um ' + esc(kal.um) + ' Uhr' : '') + '. Tippen für erneuten Abgleich.' : 'Google Kalender: nicht synchronisiert. Tippen für den Grund und erneuten Abgleich.');
+  var syncZeile = '<div style="display:flex;justify-content:flex-end;margin:-8px -6px 0 0"><button class="syncdot' + syncKlasse + '" data-a="sync" title="' + syncTitel + '" aria-label="' + syncTitel + '"></button></div>';
   var kopf = syncZeile + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 12px">' +
     '<h2 style="margin:0;font-size:22px;font-weight:300">' + MONATE[kalender.monat] + ' ' + kalender.jahr + '</h2>' +
     '<div style="display:flex;gap:8px"><button class="rund klein" aria-label="Vorheriger Monat" onclick="kalenderMonat(-1)">' + ico(I_LEFT, 20) + '</button>' +
@@ -812,6 +845,10 @@ function renderKalender() {
   var zeilen = '';
   for (var w = 0; w < wochen; w++) {
     var wStart = startNr + w * 7, wEnde = wStart + 6;
+    // Wie viele Bahnen braucht diese Woche? Alle Balken werden gezeigt, die Zeile wird entsprechend höher.
+    var bahnen = 1;
+    balken.forEach(function (b) { if (b.bis >= wStart && b.von <= wEnde && b.lane + 1 > bahnen) bahnen = b.lane + 1; });
+    var ZEILE_H = BAHN_START + bahnen * BAHN_H + 18;
     var zellen = '', marker = '';
     for (var c = 0; c < 7; c++) {
       var nr = wStart + c, dd = new Date(nr * 86400000), datum = nrDatum(nr);
@@ -830,22 +867,20 @@ function renderKalender() {
         marker += '<div style="position:absolute;left:calc(' + ((c + 0.5) / 7 * 100) + '% + ' + ((i - (arten.length - 1) / 2) * 10 - 3) + 'px);top:' + (ZEILE_H - 12) + 'px;width:6px;height:6px;' + form + '"></div>';
       });
     }
-    var innen = '', ueberlauf = 0;
+    var innen = '';
     balken.forEach(function (b) {
       if (b.bis < wStart || b.von > wEnde) return;
-      if (b.lane >= MAX_LANES) { ueberlauf++; return; }
       var c0 = Math.max(b.von, wStart) - wStart, c1 = Math.min(b.bis, wEnde) - wStart;
       var lo = b.von < wStart, ro = b.bis > wEnde;
       var rl = lo ? '0' : '8px', rr = ro ? '0' : '8px';
-      innen += '<div style="position:absolute;left:calc(' + (c0 / 7 * 100) + '% + 2px);width:calc(' + ((c1 - c0 + 1) / 7 * 100) + '% - 4px);top:' + (32 + b.lane * 18) +
+      innen += '<div style="position:absolute;left:calc(' + (c0 / 7 * 100) + '% + 2px);width:calc(' + ((c1 - c0 + 1) / 7 * 100) + '% - 4px);top:' + (BAHN_START + b.lane * BAHN_H) +
         'px;height:15px;box-sizing:border-box;padding:0 6px;background:' + b.farbe[0] + ';color:' + b.farbe[1] +
         ';font-size:10px;font-weight:600;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:' + rl + ' ' + rr + ' ' + rr + ' ' + rl + '">' + esc(b.name) + '</div>';
       if (b.erinn >= Math.max(b.von, wStart) && b.erinn <= Math.min(b.bis, wEnde)) {
-        innen += '<div style="position:absolute;left:calc(' + ((b.erinn - wStart + 0.5) / 7 * 100) + '% - 3px);top:' + (32 + b.lane * 18 + 4) +
+        innen += '<div style="position:absolute;left:calc(' + ((b.erinn - wStart + 0.5) / 7 * 100) + '% - 3px);top:' + (BAHN_START + b.lane * BAHN_H + 4) +
           'px;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px ' + b.farbe[1] + '"></div>';
       }
     });
-    if (ueberlauf > 0) innen += '<div style="position:absolute;right:4px;top:2px;font-size:11px;color:var(--grau)">+' + ueberlauf + '</div>';
     zeilen += '<div style="position:relative;height:' + ZEILE_H + 'px;display:flex">' + zellen +
       '<div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none">' + innen + marker + '</div></div>';
   }
@@ -989,11 +1024,12 @@ function karteHtml(u) {
         }).join('');
     }
   }
-  return '<div class="karte' + (u.aktiv ? '' : ' inaktiv') + '" data-key="' + k + '">' +
+  var amp = statusKlasse(u);
+  return '<div class="karte' + (amp ? ' amp-' + amp : '') + (u.aktiv ? '' : ' inaktiv') + '" data-key="' + k + '">' +
     '<div class="reihe">' +
       '<button class="griff" aria-label="Verschieben: ' + esc(u.name) + ' (ziehen oder Pfeiltasten hoch und runter)" title="Ziehen zum Sortieren">' + GRIFF_SVG + '</button>' +
       '<button class="kopf" data-a="toggle" data-k="' + k + '" aria-expanded="' + auf + '">' +
-        '<span class="kt"><span class="name">' + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span>' +
+        '<span class="kt"><span class="name">' + (u.taeglich ? '<span class="farbpunkt" style="background:' + PALETTE[u.farbe >= 0 ? u.farbe : 0][2] + '"></span>' : '') + esc(u.name) + (u.aktiv ? '' : ' (inaktiv)') + '</span>' +
           '<span class="metazeile"><span class="status st-' + info.klasse + '">' + esc(info.status) + '</span><span class="meta">' + esc(info.meta) + '</span></span>' +
           bestandZeile(u) + '</span>' +
         ico(auf ? I_AUF : I_AB, 20, '#6e6875') + '</button>' +
@@ -1030,7 +1066,10 @@ function renderEinstellungen() {
   $('kalStatus').textContent = laedt ? 'Wird abgeglichen …' : (k.verbunden ? 'Verbunden · abgeglichen um ' + k.um + ' Uhr' : k.status);
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
+// Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
+var APP_VERSION = '2026-10-02 · alle Balken sichtbar';
 function renderKopf() {
+  $('versionText').textContent = 'Version ' + APP_VERSION;
   if (!state.heute) return;
   $('heuteText').textContent = tagLang(state.heute) +
     (vorlaeufig === true ? ' · wird aktualisiert …' : vorlaeufig === 'offline' ? ' · nicht aktualisiert' : '');
@@ -1367,6 +1406,7 @@ function speichere() {
     }
     if (neuRechnen && bestandPatch.bestand !== '' && vNeu > 0) { m.frist = fristAusBestand(bestandPatch.bestand, vNeu, state.heute); }
     if (neuRechnen && bestandPatch.bestand !== '' && !m.beginn) { m.beginn = state.heute; }   // sonst gäbe es keinen Kalenderbalken
+    m.farbe = vNeu > 0 ? ((alt && alt.farbe !== '' && alt.farbe !== undefined) ? alt.farbe : naechsteFarbe((m.gruppe || '') || (m.id || '__neu__'))) : '';
   } else { m.verbrauch = ''; m.standardmenge = ''; m.bestand = ''; m.bestandGeaendert = false; }
 
   var istNeu = !m.id;
