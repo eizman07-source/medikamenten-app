@@ -1270,7 +1270,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-02 · Akte mit Dokumenten';
+var APP_VERSION = '2026-10-05 · Link kopieren am Laptop';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
@@ -2116,7 +2116,9 @@ function renderZugaenge() {
         return '<button class="pill klein' + (klasse ? ' ' + klasse : '') + '" data-z="' + esc(z.id) + '" data-zakt="' + akt + '"' + (frage ? ' data-frage="' + esc(frage) + '"' : '') + '>' + txt + '</button>';
       };
       aktionen = '<div class="zaktionen">' +
-        a('Link teilen', 'teilen', '', 'primaer') +
+        (navigator.share ? a('Teilen', 'teilen', '', 'primaer') : '') +
+        a('Link kopieren', 'kopieren', '', navigator.share ? '' : 'primaer') +
+        a(pinSichtbar[z.id + '_link'] ? 'Link ausblenden' : 'Link anzeigen', 'zeigen') +
         a(pinSichtbar[z.id] ? 'PIN ' + esc(z.pin) : 'PIN zeigen', 'pin') +
         a(z.gesperrt ? 'Entsperren' : 'Sperren', z.gesperrt ? 'entsperren' : 'sperren', z.gesperrt ? '' : 'Zugang von ' + z.name + ' sperren? Alle Geräte verlieren sofort den Zugriff.') +
         a(z.rolle === 'admin' ? 'Zu Nutzer machen' : 'Zu Admin machen', z.rolle === 'admin' ? 'nutzer' : 'admin', 'Rolle von ' + z.name + ' ändern?') +
@@ -2137,6 +2139,14 @@ function zugangAktion(aktion, daten, frage) {
   if (frage && !confirm(frage)) return;
   call(aktion, daten).then(function (s) { zugaengeStand = s; renderZugaenge(); meldung('Gespeichert'); }).catch(fehler);
 }
+// Am Laptop gibt es oft kein Teilen-Menü: dann kopieren, und wenn auch das nicht geht, den Link zum Markieren anzeigen
+function kopiereLink(z) {
+  var link = personLink(z);
+  var zeigen = function () { pinSichtbar[z.id + '_link'] = true; renderZugaenge(); meldung('Link unten markieren und kopieren', true); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(function () { meldung('Link für ' + z.name + ' kopiert'); }, zeigen);
+  } else zeigen();
+}
 function teileLink(z) {
   var link = personLink(z);
   var text = 'Dein Zugang zur Medikamenten-App von Bastian (' + z.name + '). Die PIN bekommst du getrennt.';
@@ -2154,6 +2164,8 @@ $('zugangListe').addEventListener('click', function (e) {
     var z = zugaengeStand.zugaenge.filter(function (x) { return x.id === id; })[0];
     if (!z) return;
     if (akt === 'teilen') teileLink(z);
+    else if (akt === 'kopieren') kopiereLink(z);
+    else if (akt === 'zeigen') { pinSichtbar[id + '_link'] = !pinSichtbar[id + '_link']; renderZugaenge(); }
     else if (akt === 'pin') { pinSichtbar[id] = !pinSichtbar[id]; renderZugaenge(); }
     else if (akt === 'sperren') zugangAktion('zugangAendern', { id: id, gesperrt: true }, frage);
     else if (akt === 'entsperren') zugangAktion('zugangAendern', { id: id, gesperrt: false });
