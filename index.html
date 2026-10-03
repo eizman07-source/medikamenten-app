@@ -195,6 +195,12 @@
   .ubstatus.auto { background: var(--past); color: var(--past-t); }
   .quellen { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
   .quelle { height: 28px; padding: 0 10px; border-radius: 999px; background: var(--flaeche); font-size: 12px; font-weight: 700; color: var(--past-t); }
+  .ordner { display: flex !important; align-items: center; gap: 12px; cursor: pointer; }
+  .ordner .oi { width: 40px; height: 40px; border-radius: 12px; background: var(--flaeche); display: flex; align-items: center; justify-content: center; flex: none; color: var(--past-t); }
+  .ordner .on { font-size: 16px; font-weight: 600; }
+  .ordner .oz { font-size: 13px; color: var(--grau); margin-top: 1px; }
+  .zurueck { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 12px 0 6px; border-radius: 999px; background: #fff; border: 1px solid var(--linie); font-size: 14px; font-weight: 600; color: var(--ink); }
+  .ordnertitel { font-size: 20px; font-weight: 300; margin: 12px 4px 0; }
   .dok { display: flex !important; align-items: center; gap: 10px; cursor: pointer; }
   .dok .dt { font-size: 15px; font-weight: 600; }
   .dok .dm { font-size: 13px; color: var(--grau); margin-top: 2px; }
@@ -205,6 +211,10 @@
   .metatab td:first-child { color: var(--grau); width: 38%; padding-right: 10px; }
   .dokabschnitt { margin-top: 16px; font-size: 13px; font-weight: 700; color: var(--grau); letter-spacing: .04em; text-transform: uppercase; }
   .doktext { font-size: 15px; line-height: 1.45; margin-top: 6px; }
+  .qrbox { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: #fff; border-radius: 16px; border: 1px solid var(--linie); }
+  .qrbox svg { width: min(260px, 70vw); height: auto; }
+  body.blick > *:not(#blickSeite):not(#toast) { display: none !important; }
+  #blickSeite { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
   .rollenetikett { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--flaeche); color: var(--grau); margin-left: 6px; vertical-align: 1px; }
   .rollenetikett.admin { background: var(--past); color: var(--past-t); }
   .rollenetikett.gesperrt { background: #fde4ec; color: #a1173f; }
@@ -238,13 +248,12 @@
     <div id="listeAT"></div>
     </div>
     <div id="bereichAkte" style="display:none">
-      <div class="abschnitt" style="margin-top:4px"><h2>Auf einen Blick</h2></div>
+      <div class="abschnitt" style="margin-top:4px;align-items:center"><h2>Auf einen Blick</h2><button class="pill klein primaer" style="margin-left:auto" onclick="oeffneTeilen()">Teilen</button></div>
       <div class="gruppe" id="ubListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
       <p class="info" style="margin:8px 4px 0">„Noch zu bestätigen“ heißt: aus älteren Unterlagen übernommen, aber nicht aktuell bestätigt. „Nicht dokumentiert“ heißt nicht „nicht vorhanden“.</p>
       <div class="abschnitt"><h2>Dokumente</h2><span class="anz" id="anzDok"></span></div>
       <input type="search" class="feld" id="dokSuche" placeholder="Suchen: Titel, Absender, Inhalt, D-Nummer" aria-label="Dokumente durchsuchen">
-      <div class="chips" id="dokKats" role="toolbar" aria-label="Kategorie"></div>
-      <div class="schalterzeile" style="margin:6px 4px 12px"><label for="dokArchiv">Archiv einblenden<div class="eu">Dubletten, Teilkopien, Sammeldatei</div></label><input type="checkbox" class="schalter" id="dokArchiv"></div>
+      <div id="dokPfad" style="margin:12px 0 8px"></div>
       <div class="gruppe" id="dokListe"></div>
     </div>
   </div>
@@ -298,6 +307,9 @@
       </div>
     </div>
     <p class="info" style="margin:8px 4px 0">Jede Person bekommt einen eigenen Link. Die PIN gibst du ihr getrennt davon, zum Beispiel am Telefon. Sie wird einmal pro Gerät abgefragt.</p>
+
+    <div class="grtitel">Geteilte Überblicke</div>
+    <div class="gruppe" id="freigabeListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
 
     <div class="grtitel">Dieses Gerät</div>
     <div class="gruppe">
@@ -410,6 +422,29 @@
   <label for="ub_quellen">Quellen (D-Nummern, z. B. D041, D064)</label><input type="text" id="ub_quellen" autocomplete="off">
   <div class="blattfuss"><button class="pill primaer" onclick="ueberblickSpeichern()">Speichern</button></div>
 </div></div>
+
+<div id="teilenBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="teilenTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="teilenTitel">Überblick teilen</h2><button class="rund klein" aria-label="Schließen" onclick="$('teilenBlatt').style.display='none'"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <p class="info" style="margin-top:8px">Geteilt wird nur „Auf einen Blick“ mit Dauermedikation, keine Dokumente.</p>
+  <div class="vb">
+    <div class="vbtitel">Als PDF</div>
+    <p class="info" style="margin:4px 0 10px">Zum Versenden per WhatsApp, Mail oder zum Ausdrucken.</p>
+    <div id="tPdf" class="aktionen"></div>
+  </div>
+  <div class="vb">
+    <div class="vbtitel">Als QR-Code</div>
+    <p class="info" style="margin:4px 0 10px">Zum Vorzeigen, z. B. in der Praxis oder für Rettungskräfte. Wer ihn scannt, sieht den Überblick ohne Anmeldung, nur bis zum Ablauf. Jederzeit widerrufbar.</p>
+    <div class="seg" id="tDauer" style="margin-top:0">
+      <button type="button" data-tage="1" aria-pressed="true">24 Std.</button>
+      <button type="button" data-tage="7" aria-pressed="false">7 Tage</button>
+      <button type="button" data-tage="30" aria-pressed="false">30 Tage</button>
+    </div>
+    <div id="tQr" style="margin-top:12px"></div>
+  </div>
+</div></div>
+
+<div id="blickSeite" style="display:none"></div>
 
 <div id="pinBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="pinTitel">
   <div class="griffbalken"></div>
@@ -562,10 +597,17 @@ function rawCall(aktion, daten, versuch) {
   return fetch(z.url, { method: 'POST', body: JSON.stringify(koerper) })
     // Antwort als Text lesen und selbst auswerten: Liefert Google gelegentlich eine HTML-Fehlerseite statt JSON,
     // wirft r.json() in Safari nur die unverständliche Meldung "The string did not match the expected pattern".
-    .then(function (r) { return r.text(); })
-    .then(function (text) {
-      var j;
-      try { j = JSON.parse(text); } catch (err) { var u = new Error(UNERWARTET + ' Bitte noch einmal versuchen.'); u.unerwartet = true; throw u; }
+    .then(function (r) { return r.text().then(function (t) { return { status: r.status, text: t }; }); })
+    .then(function (antwort) {
+      var j, text = antwort.text;
+      try { j = JSON.parse(text); } catch (err) {
+        // Zur Fehlersuche: Statuscode und Seitentitel bzw. Textanfang der Google-Antwort festhalten
+        var titel = (/<title>([^<]*)<\/title>/i.exec(text) || [])[1] || String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
+        var u = new Error(UNERWARTET + ' Bitte noch einmal versuchen.');
+        u.unerwartet = true; u.detail = 'HTTP ' + antwort.status + (titel ? ': ' + titel : '') + ' · Aktion ' + aktion;
+        try { console.warn('Unerwartete Antwort von Google', u.detail, String(text).slice(0, 400)); } catch (x) {}
+        throw u;
+      }
       if (j.geraet) { try { localStorage.setItem('med_geraet', j.geraet); } catch (err) {} pinEingabe = ''; }
       if (!j.ok) { var f = new Error(j.fehler || 'Unbekannter Fehler'); if (j.code) f.code = j.code; throw f; }
       if (j.state && typeof j.state === 'object') j.state.__seq = seq;
@@ -573,6 +615,11 @@ function rawCall(aktion, daten, versuch) {
     })
     .catch(function (e) {
       var netz = e instanceof TypeError;
+      // Änderungen, die bei Wiederholung dasselbe Ergebnis haben, einmal still wiederholen
+      var gleichbleibend = ['speichere', 'reihenfolge', 'einstellungen', 'ueberblickSpeichern', 'zugangAendern', 'freigabeWiderrufen', 'zugaenge', 'freigaben', 'ueberblickPdf'].indexOf(aktion) >= 0;
+      if (gleichbleibend && (netz || (e && e.unerwartet)) && versuch < 1) {
+        return pause(1500).then(function () { return rawCall(aktion, daten, versuch + 1); });
+      }
       if (wiederholbar && (netz || (e && e.unerwartet)) && versuch < 2) {
         return pause(1200 * (versuch + 1)).then(function () { return rawCall(aktion, daten, versuch + 1); });
       }
@@ -598,7 +645,7 @@ function call(aktion, daten) {
   };
   var result = mutationQueue.then(function () { return rawCall(aktion, daten); }).catch(function (e) {
     // Bei einer unlesbaren Antwort ist unklar, ob der Server die Änderung noch ausgeführt hat
-    if (e && e.unerwartet) e.message = UNERWARTET + ' Die Liste wird neu geladen, bitte kurz prüfen, ob die Änderung angekommen ist.';
+    if (e && e.unerwartet) e.message = UNERWARTET + ' Die Liste wird neu geladen, bitte kurz prüfen, ob die Änderung angekommen ist.' + (e.detail ? ' (' + e.detail + ')' : '');
     throw e;
   });
   result.then(done, done);
@@ -1302,7 +1349,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-05 · Schlüssel und URL getrennt';
+var APP_VERSION = '2026-10-05 · Teilen (PDF, QR, Dokumente)';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
@@ -1890,6 +1937,141 @@ function sendeEinst(stamp) {
   });
 }
 
+/* Kleiner QR-Code-Erzeuger (Byte-Modus, Fehlerkorrektur M, Versionen 1–25), eigene Umsetzung nach ISO/IEC 18004. */
+var QR = (function () {
+  var ECC_M = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28];
+  var BLK_M = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21];
+  function rohModule(v) {
+    var r = (16 * v + 128) * v + 64;
+    if (v >= 2) { var n = Math.floor(v / 7) + 2; r -= (25 * n - 10) * n - 55; if (v >= 7) r -= 36; }
+    return r;
+  }
+  function datenCodewords(v) { return Math.floor(rohModule(v) / 8) - ECC_M[v] * BLK_M[v]; }
+  // Reed-Solomon über GF(256), Polynom 0x11D
+  function mul(x, y) { var z = 0; for (var i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11D); z ^= ((y >>> i) & 1) * x; } return z & 0xFF; }
+  function divisor(grad) {
+    var r = []; for (var i = 0; i < grad - 1; i++) r.push(0); r.push(1);
+    var root = 1;
+    for (var i2 = 0; i2 < grad; i2++) {
+      for (var j = 0; j < r.length; j++) { r[j] = mul(r[j], root); if (j + 1 < r.length) r[j] ^= r[j + 1]; }
+      root = mul(root, 0x02);
+    }
+    return r;
+  }
+  function rest(daten, div) {
+    var r = div.map(function () { return 0; });
+    daten.forEach(function (b) {
+      var f = b ^ r.shift(); r.push(0);
+      div.forEach(function (c, i) { r[i] ^= mul(c, f); });
+    });
+    return r;
+  }
+  function utf8(t) { var u = unescape(encodeURIComponent(t)), a = []; for (var i = 0; i < u.length; i++) a.push(u.charCodeAt(i)); return a; }
+  function erzeuge(text) {
+    var bytes = utf8(text), v, bits = [];
+    for (v = 1; v <= 25; v++) { var cc = v < 10 ? 8 : 16; if (4 + cc + bytes.length * 8 <= datenCodewords(v) * 8) break; }
+    if (v > 25) throw new Error('Text zu lang für QR-Code');
+    var add = function (wert, n) { for (var i = n - 1; i >= 0; i--) bits.push((wert >>> i) & 1); };
+    add(4, 4); add(bytes.length, v < 10 ? 8 : 16); bytes.forEach(function (b) { add(b, 8); });
+    var kap = datenCodewords(v) * 8;
+    add(0, Math.min(4, kap - bits.length)); add(0, (8 - bits.length % 8) % 8);
+    for (var pad = 0xEC; bits.length < kap; pad ^= 0xEC ^ 0x11) add(pad, 8);
+    var daten = []; for (var i = 0; i < bits.length; i += 8) { var b = 0; for (var k = 0; k < 8; k++) b = (b << 1) | bits[i + k]; daten.push(b); }
+    // Blöcke bilden, Fehlerkorrektur anhängen, verschränken
+    var nBlk = BLK_M[v], ecc = ECC_M[v], roh = Math.floor(rohModule(v) / 8);
+    var kurz = nBlk - roh % nBlk, kurzLen = Math.floor(roh / nBlk), div = divisor(ecc), bloecke = [], pos = 0;
+    for (var bi = 0; bi < nBlk; bi++) {
+      var d = daten.slice(pos, pos + kurzLen - ecc + (bi < kurz ? 0 : 1)); pos += d.length;
+      var e = rest(d, div); if (bi < kurz) d.push(-1); bloecke.push(d.concat(e));
+    }
+    var alles = [];
+    for (var s = 0; s < bloecke[0].length; s++) bloecke.forEach(function (bl, bix) { if (s !== kurzLen - ecc || bix >= kurz) alles.push(bl[s]); });
+    // Matrix
+    var n = v * 4 + 17, m = [], fkt = [];
+    for (var y = 0; y < n; y++) { m.push([]); fkt.push([]); for (var x = 0; x < n; x++) { m[y].push(false); fkt[y].push(false); } }
+    var setz = function (x, y, d) { m[y][x] = d; fkt[y][x] = true; };
+    for (var t = 0; t < n; t++) { setz(6, t, t % 2 === 0); setz(t, 6, t % 2 === 0); }
+    var finder = function (cx, cy) {
+      for (var dy = -4; dy <= 4; dy++) for (var dx = -4; dx <= 4; dx++) {
+        var dist = Math.max(Math.abs(dx), Math.abs(dy)), xx = cx + dx, yy = cy + dy;
+        if (xx >= 0 && xx < n && yy >= 0 && yy < n) setz(xx, yy, dist !== 2 && dist !== 4);
+      }
+    };
+    finder(3, 3); finder(n - 4, 3); finder(3, n - 4);
+    if (v > 1) {
+      var na = Math.floor(v / 7) + 2, schritt = Math.ceil((v * 4 + 4) / (na * 2 - 2)) * 2, lagen = [6];
+      for (var p = n - 7; lagen.length < na; p -= schritt) lagen.splice(1, 0, p);
+      lagen.forEach(function (ay, i) { lagen.forEach(function (ax, j) {
+        if ((i === 0 && j === 0) || (i === 0 && j === na - 1) || (i === na - 1 && j === 0)) return;
+        for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++) setz(ax + dx, ay + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      }); });
+    }
+    var formatBits = function (maske) {
+      var d = (0 << 3) | maske, r = d;   // Fehlerkorrektur M = 00
+      for (var i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+      var b = ((d << 10) | r) ^ 0x5412, bit = function (i) { return ((b >>> i) & 1) === 1; };
+      for (var i1 = 0; i1 <= 5; i1++) setz(8, i1, bit(i1));
+      setz(8, 7, bit(6)); setz(8, 8, bit(7)); setz(7, 8, bit(8));
+      for (var i2 = 9; i2 < 15; i2++) setz(14 - i2, 8, bit(i2));
+      for (var i3 = 0; i3 < 8; i3++) setz(n - 1 - i3, 8, bit(i3));
+      for (var i4 = 8; i4 < 15; i4++) setz(8, n - 15 + i4, bit(i4));
+      setz(8, n - 8, true);
+    };
+    formatBits(0);
+    if (v >= 7) {
+      var r = v; for (var i5 = 0; i5 < 12; i5++) r = (r << 1) ^ ((r >>> 11) * 0x1F25);
+      var vb = (v << 12) | r;
+      for (var i6 = 0; i6 < 18; i6++) { var bt = ((vb >>> i6) & 1) === 1, a = n - 11 + i6 % 3, c = Math.floor(i6 / 3); setz(a, c, bt); setz(c, a, bt); }
+    }
+    // Daten im Zickzack platzieren
+    var idx = 0, bitsAlle = [];
+    alles.forEach(function (b) { for (var k = 7; k >= 0; k--) bitsAlle.push((b >>> k) & 1); });
+    for (var rechts = n - 1; rechts >= 1; rechts -= 2) {
+      if (rechts === 6) rechts = 5;
+      for (var vert = 0; vert < n; vert++) for (var j = 0; j < 2; j++) {
+        var xx = rechts - j, hoch = ((rechts + 1) & 2) === 0, yy = hoch ? n - 1 - vert : vert;
+        if (!fkt[yy][xx] && idx < bitsAlle.length) { m[yy][xx] = bitsAlle[idx] === 1; idx++; }
+      }
+    }
+    // Maske mit der geringsten Strafpunktzahl wählen
+    var masken = [
+      function (x, y) { return (x + y) % 2 === 0; }, function (x, y) { return y % 2 === 0; }, function (x) { return x % 3 === 0; },
+      function (x, y) { return (x + y) % 3 === 0; }, function (x, y) { return (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0; },
+      function (x, y) { return x * y % 2 + x * y % 3 === 0; }, function (x, y) { return (x * y % 2 + x * y % 3) % 2 === 0; },
+      function (x, y) { return ((x + y) % 2 + x * y % 3) % 2 === 0; }];
+    var anwenden = function (k) { for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) if (!fkt[y][x] && masken[k](x, y)) m[y][x] = !m[y][x]; };
+    var strafe = function () {
+      var s = 0, dunkel = 0, y, x;
+      for (var dir = 0; dir < 2; dir++) for (var a = 0; a < n; a++) {
+        var lauf = 1, letzte = null, folge = [];
+        for (var b = 0; b < n; b++) {
+          var w = dir ? m[b][a] : m[a][b];
+          if (w === letzte) { lauf++; if (lauf === 5) s += 3; else if (lauf > 5) s++; } else { lauf = 1; letzte = w; }
+          folge.push(w ? 1 : 0);
+        }
+        var str = folge.join('');
+        var muster = /(?=(10111010000|00001011101))/g; while (muster.exec(str)) { s += 40; muster.lastIndex++; }
+      }
+      for (y = 0; y < n - 1; y++) for (x = 0; x < n - 1; x++) { var c = m[y][x]; if (c === m[y][x + 1] && c === m[y + 1][x] && c === m[y + 1][x + 1]) s += 3; }
+      for (y = 0; y < n; y++) for (x = 0; x < n; x++) if (m[y][x]) dunkel++;
+      s += Math.floor(Math.abs(dunkel * 20 - n * n * 10) / (n * n)) * 10;
+      return s;
+    };
+    var beste = 0, minS = Infinity;
+    for (var k = 0; k < 8; k++) { anwenden(k); formatBits(k); var st = strafe(); if (st < minS) { minS = st; beste = k; } anwenden(k); }
+    anwenden(beste); formatBits(beste);
+    return m;
+  }
+  function svg(text, groesse) {
+    var m = erzeuge(text), n = m.length, rand = 4, d = '';
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) if (m[y][x]) d += 'M' + (x + rand) + ',' + (y + rand) + 'h1v1h-1z';
+    var g = n + rand * 2;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + g + ' ' + g + '" width="' + (groesse || 240) + '" height="' + (groesse || 240) +
+      '" shape-rendering="crispEdges" role="img" aria-label="QR-Code"><rect width="100%" height="100%" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+  }
+  return { erzeuge: erzeuge, svg: svg };
+})();
+
 /* ---- Bereiche: Medikamente und Akte ---- */
 var bereich = null;
 function zeigeBereich(b) {
@@ -1909,7 +2091,7 @@ document.querySelector('#bereichWahl').addEventListener('click', function (e) {
 });
 
 /* ---- Akte ---- */
-var akteStand = null, akteVorlaeufig = false, dokKat = 'alle', dokSuche = '', dateiCache = {};
+var akteStand = null, akteVorlaeufig = false, dokSuche = '', dateiCache = {};
 function akteAusSpeicher() {
   try { var j = JSON.parse(localStorage.getItem('med_akte')); if (j && j.dokumente) { akteStand = j; akteVorlaeufig = true; } } catch (e) {}
 }
@@ -1979,47 +2161,84 @@ function renderUeberblick() {
   $('ubListe').innerHTML = html || '<div class="ezeile"><div class="eu">Noch keine Angaben.</div></div>';
 }
 
-function dokListeGefiltert() {
-  var archiv = $('dokArchiv').checked, q = normText(dokSuche);
-  return (akteStand.dokumente || []).filter(function (d) {
-    if (d.archiv && !archiv) return false;
-    if (dokKat !== 'alle' && d.kategorieId !== dokKat) return false;
-    if (!q) return true;
-    return normText([d.id, d.titel, d.aussteller, d.art, d.zusammenfassung, d.originalname, d.kategorie].join(' ')).indexOf(q) >= 0;
-  }).sort(function (a, b) {
+// Ordneransicht wie in Drive: ohne Suche erst die Kategorien als Ordner, darin die Dokumente (neueste zuerst).
+// Das Archiv (Dubletten, Teilkopien, Sammeldatei) ist ein eigener Ordner am Ende. Mit Suche: Treffer aus allen Ordnern.
+var dokOrdner = null;   // null = Ordnerübersicht, sonst Kategorie-ID oder 'archiv'
+var I_ORDNER = 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z';
+function dokSortiert(liste) {
+  return liste.slice().sort(function (a, b) {
     if (!a.sortierung && !b.sortierung) return a.id < b.id ? -1 : 1;
     if (!a.sortierung) return 1;
     if (!b.sortierung) return -1;
     return a.sortierung < b.sortierung ? 1 : a.sortierung > b.sortierung ? -1 : (a.id < b.id ? -1 : 1);
   });
 }
-
+function dokZeile(d, mitKategorie) {
+  var unsicher = d.datumStatus && d.datumStatus !== 'verified';
+  return '<div class="ezeile dok" data-dok="' + esc(d.id) + '"><div style="flex:1;min-width:0">' +
+    '<div class="dt">' + esc(d.titel) + (d.archiv && mitKategorie ? '<span class="tag archiv">Archiv</span>' : '') + '</div>' +
+    '<div class="dm">' + esc(fmtDokDatum(d.datum)) + (unsicher && !/unbestätigt|offen|unbekannt|Zeitraum/i.test(d.datum) ? ' · Datum unsicher' : '') +
+    (mitKategorie ? ' · ' + esc(d.kategorie) : '') + ' · ' + esc(d.id) + '</div></div>' + ico(I_RIGHT, 18, '#6e6875') + '</div>';
+}
 function renderDokumente() {
-  var archiv = $('dokArchiv').checked;
-  var basis = (akteStand.dokumente || []).filter(function (d) { return archiv || !d.archiv; });
-  var zahl = {};
-  basis.forEach(function (d) { zahl[d.kategorieId] = (zahl[d.kategorieId] || 0) + 1; });
-  // Leere Kategorien ausblenden (beim späteren Hochladen bleiben sie wählbar)
-  $('dokKats').innerHTML = '<button type="button" data-kat="alle" aria-pressed="' + (dokKat === 'alle') + '">Alle<span class="n">' + basis.length + '</span></button>' +
-    (akteStand.kategorien || []).filter(function (k) { return zahl[k.id]; }).map(function (k) {
-      return '<button type="button" data-kat="' + k.id + '" aria-pressed="' + (dokKat === k.id) + '">' + esc(k.name) + '<span class="n">' + zahl[k.id] + '</span></button>';
+  var alle = akteStand.dokumente || [];
+  var haupt = alle.filter(function (d) { return !d.archiv; });
+  var archiv = alle.filter(function (d) { return d.archiv; });
+  var q = normText(dokSuche);
+  if (!alle.length) {
+    $('anzDok').textContent = ''; $('dokPfad').innerHTML = '';
+    $('dokListe').innerHTML = '<div class="ezeile"><div class="eu">Noch keine Dokumente importiert.</div></div>';
+    return;
+  }
+  // Suche: über alle Ordner
+  if (q) {
+    var treffer = dokSortiert(alle.filter(function (d) {
+      return normText([d.id, d.titel, d.aussteller, d.art, d.zusammenfassung, d.originalname, d.kategorie].join(' ')).indexOf(q) >= 0;
+    }));
+    $('anzDok').textContent = treffer.length;
+    $('dokPfad').innerHTML = '<div class="eu" style="margin:0 4px">Treffer in allen Ordnern</div>';
+    $('dokListe').innerHTML = treffer.length ? treffer.map(function (d) { return dokZeile(d, true); }).join('') : '<div class="ezeile"><div class="eu">Keine Treffer.</div></div>';
+    return;
+  }
+  // Ordnerübersicht
+  if (dokOrdner === null) {
+    var zahl = {};
+    haupt.forEach(function (d) { zahl[d.kategorieId] = (zahl[d.kategorieId] || 0) + 1; });
+    var ordner = (akteStand.kategorien || []).filter(function (k) { return zahl[k.id]; }).map(function (k) {
+      return { id: k.id, name: k.name, n: zahl[k.id] };
+    });
+    if (archiv.length) ordner.push({ id: 'archiv', name: 'Archiv', n: archiv.length, info: 'Dubletten, Teilkopien, Sammeldatei' });
+    $('anzDok').textContent = haupt.length;
+    $('dokPfad').innerHTML = '';
+    $('dokListe').innerHTML = ordner.map(function (o) {
+      return '<div class="ezeile ordner" data-ordner="' + esc(o.id) + '" role="button" tabindex="0">' +
+        '<span class="oi">' + ico(I_ORDNER, 22) + '</span><div style="flex:1;min-width:0"><div class="on">' + esc(o.name) + '</div>' +
+        '<div class="oz">' + o.n + (o.n === 1 ? ' Dokument' : ' Dokumente') + (o.info ? ' · ' + esc(o.info) : '') + '</div></div>' + ico(I_RIGHT, 18, '#6e6875') + '</div>';
     }).join('');
-  var liste = dokListeGefiltert();
-  $('anzDok').textContent = liste.length;
-  $('dokListe').innerHTML = liste.length ? liste.map(function (d) {
-    var unsicher = d.datumStatus && d.datumStatus !== 'verified';
-    return '<div class="ezeile dok" data-dok="' + esc(d.id) + '"><div style="flex:1;min-width:0">' +
-      '<div class="dt">' + esc(d.titel) + (d.archiv ? '<span class="tag archiv">Archiv</span>' : '') + '</div>' +
-      '<div class="dm">' + esc(fmtDokDatum(d.datum)) + (unsicher && !/unbestätigt|offen|unbekannt|Zeitraum/i.test(d.datum) ? ' · Datum unsicher' : '') +
-      ' · ' + esc(d.kategorie) + ' · ' + esc(d.id) + '</div></div>' + ico(I_RIGHT, 18, '#6e6875') + '</div>';
-  }).join('') : '<div class="ezeile"><div class="eu">' + ((akteStand.dokumente || []).length ? 'Keine Treffer.' : 'Noch keine Dokumente importiert.') + '</div></div>';
+    return;
+  }
+  // Inhalt eines Ordners
+  var inhalt = dokOrdner === 'archiv' ? archiv : haupt.filter(function (d) { return d.kategorieId === dokOrdner; });
+  var name = dokOrdner === 'archiv' ? 'Archiv' : ((akteStand.kategorien || []).filter(function (k) { return k.id === dokOrdner; })[0] || {}).name || '';
+  $('anzDok').textContent = haupt.length;
+  $('dokPfad').innerHTML = '<button class="zurueck" data-ordner="">' + ico(I_LEFT, 18) + 'Alle Ordner</button>' +
+    '<div class="ordnertitel">' + esc(name) + ' <span class="anz" style="font-size:15px">' + inhalt.length + '</span></div>';
+  $('dokListe').innerHTML = inhalt.length ? dokSortiert(inhalt).map(function (d) { return dokZeile(d, false); }).join('')
+    : '<div class="ezeile"><div class="eu">Dieser Ordner ist leer.</div></div>';
+}
+function oeffneOrdner(id) {
+  dokOrdner = id || null;
+  renderDokumente();
+  try { $('dokPfad').scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {}
 }
 
 var BEZ_TEXT = { contains: 'enthält', contains_equivalent_report: 'enthält denselben Bericht wie', render_identical: 'bildgleich mit',
   earlier_version: 'frühere Fassung von', expanded_version: 'erweiterte Fassung von', partial_copy: 'Teilkopie von', byte_identical: 'identische Kopie von' };
+var aktuellesDok = null;
 function oeffneDok(id) {
   var d = (akteStand.dokumente || []).filter(function (x) { return x.id === id; })[0];
   if (!d) return;
+  aktuellesDok = d;
   $('dokTitel').textContent = d.titel;
   var zeile = function (l, v) { return v ? '<tr><td>' + l + '</td><td>' + v + '</td></tr>' : ''; };
   var ereignisse = (d.ereignisse || []).map(function (e) {
@@ -2046,22 +2265,22 @@ function oeffneDok(id) {
 }
 function zeigePdfKnopf(d) {
   if (!d.vorhanden) { $('dokPdf').innerHTML = '<span class="info">Die Datei ist noch nicht importiert.</span>'; return; }
-  if (dateiCache[d.id]) {
-    $('dokPdf').innerHTML = '<a class="pill primaer" style="flex:1;justify-content:center;height:54px;font-size:17px;text-decoration:none" href="' + dateiCache[d.id] + '" target="_blank" rel="noopener">PDF öffnen</a>';
-    return;
-  }
+  if (dateiCache[d.id]) { $('dokPdf').innerHTML = '<div class="aktionen" style="flex:1">' + dateiKnoepfe(dateiCache[d.id]) + '</div>'; return; }
   $('dokPdf').innerHTML = '<button class="pill primaer" style="flex:1;justify-content:center;height:54px;font-size:17px" data-laden="' + esc(d.id) + '">PDF laden</button>';
 }
-// Zweistufig (laden, dann öffnen), damit das Öffnen direkt aus dem Antippen kommt und nicht als Popup blockiert wird
+// Zweistufig (laden, dann öffnen oder teilen), damit das Öffnen direkt aus dem Antippen kommt und nicht blockiert wird
 $('dokPdf').addEventListener('click', function (e) {
+  var t = e.target.closest ? e.target.closest('[data-teile]') : null;
+  if (t) {
+    if (aktuellesDok && dateiCache[aktuellesDok.id]) teileDatei(dateiCache[aktuellesDok.id], aktuellesDok.titel);
+    return;
+  }
   var b = e.target.closest ? e.target.closest('[data-laden]') : null;
   if (!b) return;
   var id = b.getAttribute('data-laden');
   b.disabled = true; b.textContent = 'Wird geladen …';
   rawCall('akteDatei', { id: id }).then(function (f) {
-    var bin = atob(f.daten), arr = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-    dateiCache[id] = URL.createObjectURL(new Blob([arr], { type: f.mime || 'application/pdf' }));
+    dateiCache[id] = base64ZuDatei(f.daten, f.name, f.mime);
     var d = (akteStand.dokumente || []).filter(function (x) { return x.id === id; })[0];
     if (d) zeigePdfKnopf(d);
   }).catch(function (err) { b.disabled = false; b.textContent = 'PDF laden'; fehler(err); });
@@ -2073,15 +2292,21 @@ $('dokBlatt').addEventListener('click', function (e) {
   if (q) oeffneDok(q.getAttribute('data-dok'));
 });
 $('dokListe').addEventListener('click', function (e) {
+  var o = e.target.closest ? e.target.closest('[data-ordner]') : null;
+  if (o) { oeffneOrdner(o.getAttribute('data-ordner')); return; }
   var z = e.target.closest ? e.target.closest('[data-dok]') : null;
   if (z) oeffneDok(z.getAttribute('data-dok'));
 });
-$('dokKats').addEventListener('click', function (e) {
-  var b = e.target.closest ? e.target.closest('[data-kat]') : null;
-  if (b) { dokKat = b.getAttribute('data-kat'); renderDokumente(); }
+$('dokListe').addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var o = e.target.closest ? e.target.closest('[data-ordner]') : null;
+  if (o) { e.preventDefault(); oeffneOrdner(o.getAttribute('data-ordner')); }
+});
+$('dokPfad').addEventListener('click', function (e) {
+  var o = e.target.closest ? e.target.closest('[data-ordner]') : null;
+  if (o) oeffneOrdner(o.getAttribute('data-ordner'));
 });
 $('dokSuche').addEventListener('input', function () { dokSuche = $('dokSuche').value; renderDokumente(); });
-$('dokArchiv').addEventListener('change', function () { renderDokumente(); });
 $('ubListe').addEventListener('click', function (e) {
   var q = e.target.closest ? e.target.closest('.quelle[data-dok]') : null;
   if (q) { oeffneDok(q.getAttribute('data-dok')); return; }
@@ -2118,6 +2343,131 @@ function ueberblickSpeichern() {
     try { localStorage.setItem('med_akte', JSON.stringify(s)); } catch (e) {}
     renderAkte(); meldung('Gespeichert');
   }).catch(function (e) { fehler(e); ladeAkte(); });
+}
+
+/* ---- Teilen: Datei über das Teilen-Menü (WhatsApp usw.) oder herunterladen ---- */
+function base64ZuDatei(b64, name, mime) {
+  var bin = atob(b64), arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  var blob = new Blob([arr], { type: mime || 'application/pdf' });
+  var datei = null;
+  try { datei = new File([blob], name, { type: mime || 'application/pdf' }); } catch (e) { datei = null; }
+  return { url: URL.createObjectURL(blob), datei: datei, name: name };
+}
+function kannDateiTeilen(d) {
+  try { return !!(d && d.datei && navigator.canShare && navigator.canShare({ files: [d.datei] })); } catch (e) { return false; }
+}
+// Knöpfe für eine bereitliegende Datei: Teilen (Handy), Öffnen und Herunterladen
+function dateiKnoepfe(d) {
+  return (kannDateiTeilen(d) ? '<button class="pill primaer" data-teile="1">Teilen</button>' : '') +
+    '<a class="pill' + (kannDateiTeilen(d) ? '' : ' primaer') + '" href="' + d.url + '" target="_blank" rel="noopener" style="text-decoration:none">Öffnen</a>' +
+    '<a class="pill" href="' + d.url + '" download="' + esc(d.name) + '" style="text-decoration:none">Herunterladen</a>';
+}
+function teileDatei(d, titel) {
+  navigator.share({ files: [d.datei], title: titel || d.name }).catch(function () { /* abgebrochen */ });
+}
+
+/* Überblick teilen */
+var teilenPdf = null, teilenTage = 1;
+function oeffneTeilen() {
+  renderTeilenPdf();
+  $('tQr').innerHTML = '<button class="pill" onclick="qrErstellen()">QR-Code erzeugen</button>';
+  $('teilenBlatt').style.display = 'block';
+}
+function renderTeilenPdf() {
+  $('tPdf').innerHTML = teilenPdf ? dateiKnoepfe(teilenPdf) : '<button class="pill primaer" id="tPdfKnopf" onclick="ueberblickPdfErstellen()">PDF erstellen</button>';
+}
+// Zweistufig: erst erstellen, dann teilen, weil das Teilen-Menü direkt aus einem Antippen kommen muss
+function ueberblickPdfErstellen() {
+  var k = $('tPdfKnopf'); k.disabled = true; k.textContent = 'Wird erstellt …';
+  rawCall('ueberblickPdf').then(function (f) {
+    if (teilenPdf) URL.revokeObjectURL(teilenPdf.url);
+    teilenPdf = base64ZuDatei(f.daten, f.name, f.mime);
+    renderTeilenPdf();
+  }).catch(function (e) { k.disabled = false; k.textContent = 'PDF erstellen'; fehler(e); });
+}
+$('tPdf').addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('[data-teile]') && teilenPdf) teileDatei(teilenPdf, 'Bastian – Auf einen Blick');
+});
+document.querySelector('#tDauer').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button[data-tage]') : null;
+  if (!b) return;
+  teilenTage = Number(b.getAttribute('data-tage'));
+  Array.prototype.forEach.call(document.querySelectorAll('#tDauer button'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+});
+var letzteFreigabe = null;
+function fmtZeitpunkt(iso) {
+  var d = new Date(iso);
+  return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear() + ', ' +
+    String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' Uhr';
+}
+function qrErstellen() {
+  $('tQr').innerHTML = '<div class="eu">QR-Code wird erzeugt …</div>';
+  call('freigabeNeu', { tage: teilenTage }).then(function (f) {
+    letzteFreigabe = f;
+    var link = location.origin + location.pathname + '?blick=' + encodeURIComponent(f.token) + '&api=' + encodeURIComponent(zugang().url);
+    $('tQr').innerHTML = '<div class="qrbox">' + QR.svg(link, 260) +
+      '<div class="et" style="text-align:center">Gültig bis ' + esc(fmtZeitpunkt(f.bis)) + '</div>' +
+      '<div class="eu" style="text-align:center">Zum Scannen mit der Handykamera</div>' +
+      '<button class="pill gefahr klein" onclick="qrWiderrufen()">Sofort widerrufen</button></div>';
+  }).catch(function (e) { $('tQr').innerHTML = '<button class="pill" onclick="qrErstellen()">QR-Code erzeugen</button>'; fehler(e); });
+}
+function qrWiderrufen() {
+  if (!letzteFreigabe || !confirm('Diesen QR-Code widerrufen? Er zeigt danach nichts mehr an.')) return;
+  call('freigabeWiderrufen', { token: letzteFreigabe.token }).then(function () {
+    $('tQr').innerHTML = '<div class="eu">Widerrufen. Der QR-Code zeigt nichts mehr an.</div><button class="pill" style="margin-top:10px" onclick="qrErstellen()">Neuen QR-Code erzeugen</button>';
+    letzteFreigabe = null;
+  }).catch(fehler);
+}
+
+/* Geteilte Überblicke verwalten (Admin) */
+function ladeFreigaben() {
+  if (!istAdmin()) return;
+  call('freigaben').then(renderFreigaben).catch(function (e) { $('freigabeListe').innerHTML = '<div class="ezeile"><div class="eu">' + esc(e.message) + '</div></div>'; });
+}
+function renderFreigaben(s) {
+  var liste = (s && s.freigaben) || [];
+  $('freigabeListe').innerHTML = liste.length ? liste.slice(0, 20).map(function (f) {
+    var status = f.widerrufen ? 'widerrufen' : f.abgelaufen ? 'abgelaufen' : 'aktiv bis ' + fmtZeitpunkt(f.bis);
+    return '<div class="ezeile"><div style="min-width:0"><div class="et">QR-Code von ' + esc(f.von || '?') + '</div>' +
+      '<div class="eu">erstellt ' + esc(f.erstellt) + ' · ' + esc(status) + ' · ' + f.aufrufe + (f.aufrufe === 1 ? ' Aufruf' : ' Aufrufe') + '</div></div>' +
+      (!f.widerrufen && !f.abgelaufen ? '<button class="pill klein gefahr" data-freigabe="' + esc(f.id) + '">Widerrufen</button>' : '') + '</div>';
+  }).join('') : '<div class="ezeile"><div class="eu">Noch keine QR-Codes erstellt.</div></div>';
+}
+$('freigabeListe').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-freigabe]') : null;
+  if (!b || !confirm('Diesen QR-Code widerrufen?')) return;
+  call('freigabeWiderrufen', { id: b.getAttribute('data-freigabe') }).then(function (s) { renderFreigaben(s); meldung('Widerrufen'); }).catch(fehler);
+});
+
+/* Öffentliche Ansicht über den QR-Code: nur lesen, nichts wird auf dem Gerät gespeichert */
+function zeigeBlick(token, api) {
+  document.body.classList.add('blick');
+  var seite = $('blickSeite');
+  seite.style.display = 'block';
+  seite.innerHTML = '<div class="eu">Wird geladen …</div>';
+  if (!api) { seite.innerHTML = '<p class="info">Dieser QR-Code ist unvollständig.</p>'; return; }
+  fetch(api, { method: 'POST', body: JSON.stringify({ aktion: 'blick', token: token }) })
+    .then(function (r) { return r.text(); })
+    .then(function (t) {
+      var j; try { j = JSON.parse(t); } catch (e) { throw new Error(UNERWARTET + ' Bitte die Seite neu laden.'); }
+      if (!j.ok) throw new Error(j.fehler || 'Nicht verfügbar.');
+      var u = j.state, html = '';
+      u.felder.forEach(function (f) {
+        if (f.schluessel === 'bedarf') {
+          html += '<div class="ezeile ub"><div class="ubkopf"><div class="et">Dauermedikation</div><span class="ubstatus auto">aus Medikamente</span></div>' +
+            '<div class="ubwert' + (u.dauermedikation ? '' : ' leer') + '">' + esc(u.dauermedikation || 'Keine eingetragen') + '</div></div>';
+        }
+        html += '<div class="ezeile ub"><div class="ubkopf"><div class="et">' + esc(f.bezeichnung) + '</div><span class="ubstatus ' + esc(f.status) + '">' + esc(ST_TEXT[f.status] || '') + '</span></div>' +
+          '<div class="ubwert' + (f.wert ? '' : ' leer') + '">' + esc(f.wert || ST_TEXT[f.status] || 'Nicht dokumentiert') + '</div>' +
+          (f.quellen ? '<div class="eu" style="margin-top:6px">Quelle: ' + esc(f.quellen) + '</div>' : '') + '</div>';
+      });
+      seite.innerHTML = '<div class="unterzeile">Stand ' + esc(u.stand) + '</div><h1 style="margin:2px 0 4px">Bastian</h1>' +
+        '<div class="eu" style="margin-bottom:14px">Auf einen Blick · gültig bis ' + esc(fmtZeitpunkt(u.bis)) + '</div>' +
+        '<div class="gruppe">' + html + '</div>' +
+        '<p class="info" style="margin-top:12px">Nur zum Lesen. „Noch zu bestätigen“: aus älteren Unterlagen, aktuell nicht bestätigt. „Nicht dokumentiert“ heißt nicht „nicht vorhanden“. Kein ärztlicher Notfallplan. Bei Fragen bitte die Eltern kontaktieren.</p>';
+    })
+    .catch(function (e) { seite.innerHTML = '<h1 style="margin:0 0 8px">Bastian</h1><p class="info" style="font-size:15px">' + esc(e.message) + '</p>'; });
 }
 
 /* ---- Zugänge verwalten (nur Admin) ---- */
@@ -2262,7 +2612,7 @@ function zeigeSeite(name, ausVerlauf) {
   $('ansichtStart').style.display = einst ? 'none' : '';
   $('ansichtEinst').style.display = einst ? '' : 'none';
   if (einst && !ausVerlauf) { try { history.pushState({ seite: 'einst' }, ''); } catch (e) {} }
-  if (einst) ladeZugaenge();
+  if (einst) { ladeZugaenge(); ladeFreigaben(); }
   window.scrollTo(0, 0);
 }
 function zurueck() {
@@ -2326,9 +2676,14 @@ document.addEventListener('visibilitychange', function () {
 });
 window.addEventListener('focus', sofortAktualisieren);
 
-linkUebernehmen();
-document.body.classList.toggle('nutzer', !istAdmin());   // bis die Rolle feststeht: keine Bearbeitungsknöpfe
-if (hatZugang()) { starte(); } else { zeigeZugang(); }
+var blickParam = (function () { try { var p = new URLSearchParams(location.search); return { token: p.get('blick'), api: p.get('api') }; } catch (e) { return {}; } })();
+if (blickParam.token) {
+  zeigeBlick(blickParam.token, blickParam.api);
+} else {
+  linkUebernehmen();
+  document.body.classList.toggle('nutzer', !istAdmin());   // bis die Rolle feststeht: keine Bearbeitungsknöpfe
+  if (hatZugang()) { starte(); } else { zeigeZugang(); }
+}
 </script>
 </body>
 </html>
