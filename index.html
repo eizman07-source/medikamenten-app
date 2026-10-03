@@ -175,6 +175,42 @@
   .blattfuss .pill.primaer { flex: 1; height: 54px; font-size: 17px; justify-content: center; }
   .blattfuss .pill.gefahr { height: 54px; }
 
+  /* Nutzer (nur lesen): keine Bearbeitungsknöpfe. Das Backend lehnt solche Aktionen ohnehin ab. */
+  body.nutzer .fab, body.nutzer #einstKnopf, body.nutzer .griff, body.nutzer [data-a="lieferung"], body.nutzer [data-a="erledigt"],
+  body.nutzer [data-a="erledigt1"], body.nutzer [data-a="edit"], body.nutzer [data-a="mail"] { display: none !important; }
+  .feld { display: block; width: 100%; height: 44px; margin-top: 8px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--flaeche); font: inherit; font-size: 16px; color: var(--ink); }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 2px 4px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips button { flex: none; height: 34px; padding: 0 14px; border-radius: 999px; background: #fff; border: 1px solid var(--linie); font-size: 14px; font-weight: 600; color: var(--ink); }
+  .chips button[aria-pressed="true"] { background: var(--past); border-color: var(--past); color: var(--past-t); }
+  .chips .n { font-weight: 400; color: var(--grau); margin-left: 4px; }
+  .ub { display: block !important; }
+  .ubkopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ubwert { font-size: 15px; margin-top: 4px; white-space: pre-wrap; line-height: 1.4; }
+  .ubwert.leer { color: var(--grau); font-style: italic; }
+  .ubstatus { flex: none; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .ubstatus.bestaetigt { background: #e1f5ea; color: #1d6b3f; }
+  .ubstatus.zu_bestaetigen { background: #ffead6; color: #8a4500; }
+  .ubstatus.nicht_dokumentiert { background: #f0eef2; color: #5f5a66; }
+  .ubstatus.auto { background: var(--past); color: var(--past-t); }
+  .quellen { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  .quelle { height: 28px; padding: 0 10px; border-radius: 999px; background: var(--flaeche); font-size: 12px; font-weight: 700; color: var(--past-t); }
+  .dok { display: flex !important; align-items: center; gap: 10px; cursor: pointer; }
+  .dok .dt { font-size: 15px; font-weight: 600; }
+  .dok .dm { font-size: 13px; color: var(--grau); margin-top: 2px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #ffead6; color: #8a4500; margin-left: 6px; vertical-align: 1px; }
+  .tag.archiv { background: #f0eef2; color: #5f5a66; }
+  .metatab { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  .metatab td { padding: 6px 0; border-bottom: 1px solid var(--linie); vertical-align: top; }
+  .metatab td:first-child { color: var(--grau); width: 38%; padding-right: 10px; }
+  .dokabschnitt { margin-top: 16px; font-size: 13px; font-weight: 700; color: var(--grau); letter-spacing: .04em; text-transform: uppercase; }
+  .doktext { font-size: 15px; line-height: 1.45; margin-top: 6px; }
+  .rollenetikett { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--flaeche); color: var(--grau); margin-left: 6px; vertical-align: 1px; }
+  .rollenetikett.admin { background: var(--past); color: var(--past-t); }
+  .rollenetikett.gesperrt { background: #fde4ec; color: #a1173f; }
+  .zaktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .zperson { cursor: pointer; }
+  .zlink { margin-top: 8px; font-size: 12px; word-break: break-all; background: var(--flaeche); padding: 8px 10px; border-radius: 10px; user-select: all; }
   #toast { position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
     background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 999px; display: none; max-width: 90%;
     font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
@@ -185,14 +221,30 @@
 <div id="ansichtStart">
   <div class="seite">
     <div class="kopfzeile">
-      <div><div class="unterzeile" id="heuteText">&nbsp;</div><h1>Medikamente</h1></div>
-      <button class="rund" aria-label="Einstellungen" onclick="zeigeSeite('einst')"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7.6 7.6 0 0 1-2 1.1L14.8 21h-4l-.3-2.5a7.6 7.6 0 0 1-2-1.1l-1.9.7-2-3.4 1.6-1.2a7.4 7.4 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7.6 7.6 0 0 1 2-1.1L10.8 3h4l.3 2.5a7.6 7.6 0 0 1 2 1.1l1.9-.7 2 3.4-1.6 1.2a7.4 7.4 0 0 1 0 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+      <div><div class="unterzeile" id="heuteText">&nbsp;</div><h1 id="titel">Medikamente</h1></div>
+      <button class="rund" id="einstKnopf" aria-label="Einstellungen" onclick="zeigeSeite('einst')"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7.6 7.6 0 0 1-2 1.1L14.8 21h-4l-.3-2.5a7.6 7.6 0 0 1-2-1.1l-1.9.7-2-3.4 1.6-1.2a7.4 7.4 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7.6 7.6 0 0 1 2-1.1L10.8 3h4l.3 2.5a7.6 7.6 0 0 1 2 1.1l1.9-.7 2 3.4-1.6 1.2a7.4 7.4 0 0 1 0 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
     </div>
+    <div class="seg" id="bereichWahl" style="margin:0 0 14px">
+      <button type="button" data-bereich="med" aria-pressed="true">Medikamente</button>
+      <button type="button" data-bereich="akte" aria-pressed="false">Akte</button>
+    </div>
+    <div id="bereichMed">
     <div id="kalender" class="kalkarte" style="display:none"></div>
     <div class="abschnitt" id="kopfRez" style="display:none"><h2>Rezepte</h2><span class="anz" id="anzRez"></span></div>
     <div id="liste">Lädt …</div>
     <div class="abschnitt" id="kopfAT" style="display:none"><h2>Aufgaben &amp; Termine</h2><span class="anz" id="anzAT"></span></div>
     <div id="listeAT"></div>
+    </div>
+    <div id="bereichAkte" style="display:none">
+      <div class="abschnitt" style="margin-top:4px"><h2>Auf einen Blick</h2></div>
+      <div class="gruppe" id="ubListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
+      <p class="info" style="margin:8px 4px 0">„Noch zu bestätigen“ heißt: aus älteren Unterlagen übernommen, aber nicht aktuell bestätigt. „Nicht dokumentiert“ heißt nicht „nicht vorhanden“.</p>
+      <div class="abschnitt"><h2>Dokumente</h2><span class="anz" id="anzDok"></span></div>
+      <input type="search" class="feld" id="dokSuche" placeholder="Suchen: Titel, Absender, Inhalt, D-Nummer" aria-label="Dokumente durchsuchen">
+      <div class="chips" id="dokKats" role="toolbar" aria-label="Kategorie"></div>
+      <div class="schalterzeile" style="margin:6px 4px 12px"><label for="dokArchiv">Archiv einblenden<div class="eu">Dubletten, Teilkopien, Sammeldatei</div></label><input type="checkbox" class="schalter" id="dokArchiv"></div>
+      <div class="gruppe" id="dokListe"></div>
+    </div>
   </div>
   <button class="fab" aria-label="Neuer Eintrag" onclick="neu()"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"></path></svg></button>
 </div>
@@ -227,11 +279,29 @@
       </div>
     </div>
 
-    <div class="grtitel">Zugang</div>
+    <div class="grtitel">Zugänge</div>
+    <div class="gruppe" id="zugangGruppe">
+      <div id="altWarnung"></div>
+      <div id="zugangListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
+      <div class="ezeile" id="neuPersonZeile" style="display:block">
+        <div class="et">Person hinzufügen</div>
+        <input type="text" class="feld" id="np_name" placeholder="Name" autocomplete="off" aria-label="Name der neuen Person">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <div class="seg" id="np_rolle" style="margin-top:0;flex:1">
+            <button type="button" data-rolle="nutzer" aria-pressed="true">Nutzer</button>
+            <button type="button" data-rolle="admin" aria-pressed="false">Admin</button>
+          </div>
+          <button class="pill klein primaer" onclick="neuePerson()">Anlegen</button>
+        </div>
+      </div>
+    </div>
+    <p class="info" style="margin:8px 4px 0">Jede Person bekommt einen eigenen Link. Die PIN gibst du ihr getrennt davon, zum Beispiel am Telefon. Sie wird einmal pro Gerät abgefragt.</p>
+
+    <div class="grtitel">Dieses Gerät</div>
     <div class="gruppe">
       <div class="ezeile">
-        <div><div class="et">Web-App und Schlüssel</div><div class="eu">Nur auf diesem Gerät gespeichert</div></div>
-        <button class="pill klein" onclick="zeigeZugang()">Ändern</button>
+        <div><div class="et" id="ichName">Angemeldet</div><div class="eu" id="ichRolle"></div></div>
+        <button class="pill klein" onclick="abmelden()">Abmelden</button>
       </div>
     </div>
     <p class="info" style="margin:14px 4px">Änderungen werden sofort gespeichert.</p>
@@ -312,6 +382,45 @@
   <div class="blattfuss"><button class="pill primaer" id="btnLiefern" onclick="liefereEin()">Eintragen</button></div>
 </div></div>
 
+<div id="dokBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="dokTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="dokTitel" style="font-size:22px">Dokument</h2><button class="rund klein" aria-label="Schließen" onclick="schliesseDok()"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <div id="dokInhalt"></div>
+  <div class="blattfuss"><div id="dokPdf" style="flex:1;display:flex"></div></div>
+</div></div>
+
+<div id="ubBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="ubTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="ubTitel" style="font-size:22px">Bearbeiten</h2><button class="rund klein" aria-label="Schließen" onclick="$('ubBlatt').style.display='none'"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <input type="hidden" id="ub_schluessel">
+  <label for="ub_wert">Angabe</label><textarea id="ub_wert" style="min-height:120px"></textarea>
+  <label>Status</label>
+  <div class="seg" id="ub_status" style="margin-top:6px">
+    <button type="button" data-st="bestaetigt" aria-pressed="false">Bestätigt</button>
+    <button type="button" data-st="zu_bestaetigen" aria-pressed="true">Zu bestätigen</button>
+    <button type="button" data-st="nicht_dokumentiert" aria-pressed="false">Nicht dok.</button>
+  </div>
+  <label for="ub_quellen">Quellen (D-Nummern, z. B. D041, D064)</label><input type="text" id="ub_quellen" autocomplete="off">
+  <div class="blattfuss"><button class="pill primaer" onclick="ueberblickSpeichern()">Speichern</button></div>
+</div></div>
+
+<div id="pinBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="pinTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="pinTitel">PIN eingeben</h2></div>
+  <p class="info" style="margin-top:8px">Einmalig auf diesem Gerät. Die PIN hast du zusammen mit dem Link bekommen.</p>
+  <label for="pinFeld">PIN (4 Ziffern)</label>
+  <input type="text" id="pinFeld" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" style="font-size:24px;letter-spacing:.4em;text-align:center">
+  <p class="info" id="pinFehler" style="color:#a1173f;margin:10px 0 0;min-height:18px"></p>
+  <div class="blattfuss"><button class="pill primaer" id="pinKnopf" onclick="pinAbschicken()">Weiter</button></div>
+</div></div>
+
+<div id="sperrBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="sperrTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="sperrTitel">Kein Zugriff</h2></div>
+  <p class="info" id="sperrText" style="margin-top:8px;font-size:15px"></p>
+  <div class="blattfuss"><button class="pill" onclick="abmelden()">Anderen Zugang verwenden</button></div>
+</div></div>
+
 <div id="zugang" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="zTitel">
   <div class="griffbalken"></div>
   <div class="blattkopf"><h2 id="zTitel">Zugang</h2><button class="rund klein" id="z_abbruch" aria-label="Schließen" onclick="$('zugang').style.display='none'"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
@@ -349,14 +458,35 @@ function fehler(e) { meldung(e && e.message ? e.message : String(e), true); }
 /* ---- Zugang (nur im Browser dieses Geräts gespeichert) ---- */
 function zugang() {
   try {
-    return { url: localStorage.getItem('med_url') || '', key: localStorage.getItem('med_key') || '' };
-  } catch (e) { return { url: '', key: '' }; }
+    return { url: localStorage.getItem('med_url') || '', key: localStorage.getItem('med_key') || '',
+             zugang: localStorage.getItem('med_zugang') || '', geraet: localStorage.getItem('med_geraet') || '' };
+  } catch (e) { return { url: '', key: '', zugang: '', geraet: '' }; }
 }
+function hatZugang() { var z = zugang(); return !!(z.url && (z.zugang || z.key)); }
+// Persönlicher Link: ?zugang=<Schlüssel>&api=<Web-App-URL>. Wird gemerkt und danach aus der Adresszeile entfernt.
+function linkUebernehmen() {
+  try {
+    var p = new URLSearchParams(location.search);
+    var zg = p.get('zugang'), api = p.get('api');
+    if (!zg) return;
+    if (localStorage.getItem('med_zugang') !== zg) { localStorage.removeItem('med_geraet'); localStorage.removeItem(SNAP_KEY); localStorage.removeItem('med_akte'); }
+    localStorage.setItem('med_zugang', zg);
+    if (api) localStorage.setItem('med_url', api);
+    localStorage.removeItem('med_key');
+    history.replaceState(null, '', location.pathname);
+  } catch (e) { /* ohne Speicher geht es nicht */ }
+}
+function abmelden() {
+  if (!confirm('Auf diesem Gerät abmelden? Danach brauchst du wieder deinen Link und die PIN.')) return;
+  try { ['med_zugang', 'med_geraet', 'med_key', SNAP_KEY, 'med_akte'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+  location.reload();
+}
+function istAdmin() { return state.ich ? state.ich.rolle === 'admin' : !zugang().zugang; }
 function zeigeZugang() {
   var z = zugang();
   $('z_url').value = z.url;
   $('z_key').value = z.key;
-  $('z_abbruch').style.display = (z.url && z.key) ? '' : 'none';
+  $('z_abbruch').style.display = hatZugang() ? '' : 'none';
   $('zugang').style.display = 'block';
 }
 function speichereZugang() {
@@ -366,6 +496,7 @@ function speichereZugang() {
   try {
     localStorage.setItem('med_url', url);
     localStorage.setItem('med_key', key);
+    localStorage.removeItem('med_zugang'); localStorage.removeItem('med_geraet');
   } catch (e) { meldung('Der Browser erlaubt kein Speichern (privater Modus?).', true); return; }
   $('zugang').style.display = 'none';
   laden();
@@ -379,26 +510,32 @@ var lastAppliedSeq = 0;
 var pendingMutations = 0;     // laufende bzw. wartende schreibende Aufrufe
 var lastLocalAction = Date.now();
 
+var pinEingabe = '';
+var ZUGANGS_CODES = ['pin_noetig', 'pin_falsch', 'zu_viele_versuche', 'gesperrt', 'kein_zugang'];
 var UNERWARTET = 'Google hat gerade nicht richtig geantwortet (das kommt gelegentlich vor).';
 function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
 function rawCall(aktion, daten, versuch) {
   versuch = versuch || 0;
   var z = zugang();
-  if (!z.url || !z.key) { zeigeZugang(); return Promise.reject(new Error('Bitte zuerst den Zugang einrichten.')); }
+  if (!hatZugang()) { zeigeZugang(); return Promise.reject(new Error('Bitte zuerst den Zugang einrichten.')); }
   var seq = ++callSeq;
+  var koerper = { aktion: aktion, daten: daten || {} };
+  if (z.zugang) { koerper.zugang = z.zugang; if (z.geraet) koerper.geraet = z.geraet; if (pinEingabe) koerper.pin = pinEingabe; }
+  else koerper.key = z.key;
   // Lesende Aufrufe ändern nichts und dürfen deshalb automatisch wiederholt werden
-  var wiederholbar = aktion === 'lade' || aktion === 'kalenderLesen' || aktion === 'kalender';
+  var wiederholbar = aktion === 'lade' || aktion === 'kalenderLesen' || aktion === 'kalender' || aktion === 'akte' || aktion === 'akteDatei';
   // Bewusst KEIN Content-Type-Header (Standard text/plain): mit application/json würde der Browser einen
   // CORS-Preflight schicken, den Apps Script nicht beantwortet.
-  return fetch(z.url, { method: 'POST', body: JSON.stringify({ key: z.key, aktion: aktion, daten: daten || {} }) })
+  return fetch(z.url, { method: 'POST', body: JSON.stringify(koerper) })
     // Antwort als Text lesen und selbst auswerten: Liefert Google gelegentlich eine HTML-Fehlerseite statt JSON,
     // wirft r.json() in Safari nur die unverständliche Meldung "The string did not match the expected pattern".
     .then(function (r) { return r.text(); })
     .then(function (text) {
       var j;
       try { j = JSON.parse(text); } catch (err) { var u = new Error(UNERWARTET + ' Bitte noch einmal versuchen.'); u.unerwartet = true; throw u; }
-      if (!j.ok) throw new Error(j.fehler || 'Unbekannter Fehler');
+      if (j.geraet) { try { localStorage.setItem('med_geraet', j.geraet); } catch (err) {} pinEingabe = ''; }
+      if (!j.ok) { var f = new Error(j.fehler || 'Unbekannter Fehler'); if (j.code) f.code = j.code; throw f; }
       if (j.state && typeof j.state === 'object') j.state.__seq = seq;
       return j.state;
     })
@@ -576,12 +713,47 @@ function laden(versuche) {
     setState(s);
     planeAktualisierung();
   }).catch(function (e) {
+    if (e && ZUGANGS_CODES.indexOf(e.code) >= 0) { zugangsProblem(e); return; }
     if (n > 0 && !/Zugangsschl|Zugang einrichten/.test(e.message)) { setTimeout(function () { laden(n - 1); }, 900); return; }
     if (vorlaeufig) { vorlaeufig = 'offline'; renderKopf(); renderKalender(); } else $('liste').textContent = 'Daten konnten nicht geladen werden.';
     fehler(e);
     if (/Zugangsschl/.test(e.message)) zeigeZugang();
   });
 }
+
+// PIN abfragen oder erklären, warum kein Zugriff besteht
+function zugangsProblem(e) {
+  if (e.code === 'pin_noetig' || e.code === 'pin_falsch' || e.code === 'zu_viele_versuche') {
+    $('pinFehler').textContent = e.code === 'pin_noetig' ? '' : e.message;
+    $('pinKnopf').disabled = false;
+    $('pinBlatt').style.display = 'block';
+    try { $('pinFeld').focus(); } catch (x) {}
+    return;
+  }
+  $('sperrText').textContent = e.message;
+  $('sperrBlatt').style.display = 'block';
+}
+function pinAbschicken() {
+  var p = String($('pinFeld').value).trim();
+  if (!/^\d{4}$/.test(p)) { $('pinFehler').textContent = 'Bitte 4 Ziffern eingeben.'; return; }
+  pinEingabe = p;
+  $('pinKnopf').disabled = true;
+  $('pinFehler').textContent = '';
+  call('lade').then(function (s) {
+    pinEingabe = '';
+    $('pinBlatt').style.display = 'none';
+    $('pinFeld').value = '';
+    setState(s);
+    planeAktualisierung();
+    meldung('Willkommen' + (s && s.ich ? ', ' + s.ich.name : ''));
+  }).catch(function (e) {
+    pinEingabe = '';
+    $('pinKnopf').disabled = false;
+    if (e && ZUGANGS_CODES.indexOf(e.code) >= 0) zugangsProblem(e);
+    else $('pinFehler').textContent = e.message;
+  });
+}
+$('pinFeld').addEventListener('keydown', function (e) { if (e.key === 'Enter') pinAbschicken(); });
 
 // Start: zuerst den zuletzt gemerkten Stand zeigen (sofort), dann live nachladen
 function starte() {
@@ -996,6 +1168,8 @@ function render() {
   renderEinstellungen();
   renderGruppen();
   renderKopf();
+  renderRolle();
+  if (bereich === 'akte' && akteStand) renderUeberblick();
 }
 
 // Reihenfolge der Karten: die der Einheit mit der kleinsten Reihenfolge ihrer Mitglieder
@@ -1096,7 +1270,15 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-02 · stabilere Serverantworten';
+var APP_VERSION = '2026-10-02 · Akte mit Dokumenten';
+function renderRolle() {
+  document.body.classList.toggle('nutzer', !istAdmin());
+  if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
+  if (state.ich) {
+    $('ichName').textContent = 'Angemeldet als ' + state.ich.name;
+    $('ichRolle').textContent = state.ich.rolle === 'admin' ? 'Admin: darf alles bearbeiten' : 'Nutzer: nur lesen';
+  }
+}
 function renderKopf() {
   $('versionText').textContent = 'Version ' + APP_VERSION;
   if (!state.heute) return;
@@ -1119,6 +1301,7 @@ function klickListe(e) {
   var b = e.target.closest('[data-a]');
   if (!b) return;
   var a = b.getAttribute('data-a'), k = b.getAttribute('data-k');
+  if (!istAdmin() && a !== 'toggle' && a !== 'pop') return;   // Nutzer: nur ansehen
   if (a === 'toggle') { offen[k] = !offen[k]; renderListe(); }
   else if (a === 'pop') { popAn = popAn === k ? null : k; renderListe(); }
   else if (a === 'edit') { bearbeite(k); }
@@ -1142,7 +1325,7 @@ function listeReihenfolge(container) {
 
 function pointerdownListe(e) {
   var griff = e.target.closest('.griff');
-  if (!griff) return;
+  if (!griff || !istAdmin()) return;
   if (activeDrag) return;
   if (e.button !== undefined && e.button !== 0) return;
   e.preventDefault();
@@ -1252,7 +1435,8 @@ function finde(id) {
   return state.medikamente.filter(function (m) { return m.id === id; })[0];
 }
 function formularOffen() {
-  return $('overlay').style.display === 'block' || $('zugang').style.display === 'block' || $('lieferung').style.display === 'block';
+  return $('overlay').style.display === 'block' || $('zugang').style.display === 'block' || $('lieferung').style.display === 'block' ||
+    $('pinBlatt').style.display === 'block' || $('sperrBlatt').style.display === 'block' || $('ubBlatt').style.display === 'block';
 }
 
 // Zeigt nur die Felder, die zur gewählten Art gehören
@@ -1351,6 +1535,7 @@ function fuelle(m) {
   $('overlay').style.display = 'block';
 }
 function neu() {
+  if (!istAdmin()) return;
   $('formTitel').textContent = 'Neuer Eintrag';
   $('btnLoeschen').style.display = 'none';
   $('artWahl').style.display = '';
@@ -1672,12 +1857,342 @@ function sendeEinst(stamp) {
   });
 }
 
+/* ---- Bereiche: Medikamente und Akte ---- */
+var bereich = null;
+function zeigeBereich(b) {
+  bereich = b;
+  $('bereichMed').style.display = b === 'med' ? '' : 'none';
+  $('bereichAkte').style.display = b === 'akte' ? '' : 'none';
+  $('titel').textContent = b === 'akte' ? 'Akte' : 'Medikamente';
+  document.querySelector('.fab').style.visibility = b === 'med' ? '' : 'hidden';
+  Array.prototype.forEach.call(document.querySelectorAll('#bereichWahl button'), function (x) {
+    x.setAttribute('aria-pressed', x.getAttribute('data-bereich') === b ? 'true' : 'false');
+  });
+  if (b === 'akte') { if (!akteStand) akteAusSpeicher(); renderAkte(); ladeAkte(); }
+}
+document.querySelector('#bereichWahl').addEventListener('click', function (e) {
+  var x = e.target.closest ? e.target.closest('button[data-bereich]') : null;
+  if (x) zeigeBereich(x.getAttribute('data-bereich'));
+});
+
+/* ---- Akte ---- */
+var akteStand = null, akteVorlaeufig = false, dokKat = 'alle', dokSuche = '', dateiCache = {};
+function akteAusSpeicher() {
+  try { var j = JSON.parse(localStorage.getItem('med_akte')); if (j && j.dokumente) { akteStand = j; akteVorlaeufig = true; } } catch (e) {}
+}
+function ladeAkte() {
+  rawCall('akte').then(function (s) {
+    akteStand = s; akteVorlaeufig = false;
+    try { localStorage.setItem('med_akte', JSON.stringify(s)); } catch (e) {}   // für die Ansicht ohne Netz (nur Liste und Überblick, keine PDFs)
+    renderAkte();
+  }).catch(function (e) {
+    if (e && ZUGANGS_CODES.indexOf(e.code) >= 0) { zugangsProblem(e); return; }
+    if (!akteStand) $('ubListe').innerHTML = '<div class="ezeile"><div class="eu">' + esc(e.message) + '</div></div>';
+    else meldung('Akte: ' + e.message, true);
+  });
+}
+function normText(t) {
+  return String(t || '').toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+}
+function fmtDokDatum(t) {
+  t = String(t || '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return datumDe(t);
+  return t.replace(/^(\d{4})-(\d{2})(?!-)/, '$2/$1');
+}
+var ST_TEXT = { bestaetigt: 'Bestätigt', zu_bestaetigen: 'Noch zu bestätigen', nicht_dokumentiert: 'Nicht dokumentiert' };
+
+function quellenHtml(q) {
+  var ids = String(q || '').match(/D\d{3}/g) || [];
+  if (!ids.length) return '';
+  var sichtbar = {};
+  ((akteStand && akteStand.dokumente) || []).forEach(function (d) { sichtbar[d.id] = true; });
+  return '<div class="quellen"><span class="eu" style="margin:0">Quelle:</span>' + ids.map(function (id) {
+    return sichtbar[id] ? '<button class="quelle" data-dok="' + id + '">' + id + '</button>' : '<span class="eu" style="margin:0">' + id + '</span>';
+  }).join('') + '</div>';
+}
+
+function renderAkte() {
+  if (!akteStand) return;
+  renderUeberblick();
+  renderDokumente();
+}
+
+// Dauermedikation kommt automatisch aus dem Bereich Medikamente (täglich gegebene, aktive Rezepte)
+function dauermedikationText() {
+  var zeilen = einheiten().filter(function (u) { return u.aktiv && u.taeglich; }).map(function (u) {
+    return u.name + (u.dosis ? ': ' + u.dosis.replace(/\n/g, '; ') : '');
+  });
+  return zeilen.join('\n');
+}
+
+function renderUeberblick() {
+  var felder = akteStand.ueberblick || [];
+  var admin = istAdmin();
+  var html = '';
+  felder.forEach(function (f) {
+    if (f.schluessel === 'bedarf') {
+      var dm = dauermedikationText();
+      html += '<div class="ezeile ub"><div class="ubkopf"><div class="et">Dauermedikation</div><span class="ubstatus auto">aus Medikamente</span></div>' +
+        '<div class="ubwert' + (dm ? '' : ' leer') + '">' + esc(dm || 'Noch keine täglichen Medikamente mit Verbrauch pro Tag eingetragen') + '</div></div>';
+    }
+    var leer = !f.wert;
+    html += '<div class="ezeile ub"><div class="ubkopf"><div class="et">' + esc(f.bezeichnung) + '</div><span class="ubstatus ' + esc(f.status) + '">' + esc(ST_TEXT[f.status] || f.status) + '</span></div>' +
+      '<div class="ubwert' + (leer ? ' leer' : '') + '">' + esc(leer ? (ST_TEXT[f.status] || 'Nicht dokumentiert') : f.wert) + '</div>' +
+      quellenHtml(f.quellen) +
+      (admin ? '<div class="aktionen" style="margin-top:10px"><button class="pill klein" data-ub="' + esc(f.schluessel) + '">' + ico(I_EDIT) + 'Bearbeiten</button>' +
+        (f.geaendert ? '<span class="eu" style="align-self:center">geändert ' + esc(f.geaendert) + '</span>' : '') + '</div>' : '') +
+      '</div>';
+  });
+  $('ubListe').innerHTML = html || '<div class="ezeile"><div class="eu">Noch keine Angaben.</div></div>';
+}
+
+function dokListeGefiltert() {
+  var archiv = $('dokArchiv').checked, q = normText(dokSuche);
+  return (akteStand.dokumente || []).filter(function (d) {
+    if (d.archiv && !archiv) return false;
+    if (dokKat !== 'alle' && d.kategorieId !== dokKat) return false;
+    if (!q) return true;
+    return normText([d.id, d.titel, d.aussteller, d.art, d.zusammenfassung, d.originalname, d.kategorie].join(' ')).indexOf(q) >= 0;
+  }).sort(function (a, b) {
+    if (!a.sortierung && !b.sortierung) return a.id < b.id ? -1 : 1;
+    if (!a.sortierung) return 1;
+    if (!b.sortierung) return -1;
+    return a.sortierung < b.sortierung ? 1 : a.sortierung > b.sortierung ? -1 : (a.id < b.id ? -1 : 1);
+  });
+}
+
+function renderDokumente() {
+  var archiv = $('dokArchiv').checked;
+  var basis = (akteStand.dokumente || []).filter(function (d) { return archiv || !d.archiv; });
+  var zahl = {};
+  basis.forEach(function (d) { zahl[d.kategorieId] = (zahl[d.kategorieId] || 0) + 1; });
+  // Leere Kategorien ausblenden (beim späteren Hochladen bleiben sie wählbar)
+  $('dokKats').innerHTML = '<button type="button" data-kat="alle" aria-pressed="' + (dokKat === 'alle') + '">Alle<span class="n">' + basis.length + '</span></button>' +
+    (akteStand.kategorien || []).filter(function (k) { return zahl[k.id]; }).map(function (k) {
+      return '<button type="button" data-kat="' + k.id + '" aria-pressed="' + (dokKat === k.id) + '">' + esc(k.name) + '<span class="n">' + zahl[k.id] + '</span></button>';
+    }).join('');
+  var liste = dokListeGefiltert();
+  $('anzDok').textContent = liste.length;
+  $('dokListe').innerHTML = liste.length ? liste.map(function (d) {
+    var unsicher = d.datumStatus && d.datumStatus !== 'verified';
+    return '<div class="ezeile dok" data-dok="' + esc(d.id) + '"><div style="flex:1;min-width:0">' +
+      '<div class="dt">' + esc(d.titel) + (d.archiv ? '<span class="tag archiv">Archiv</span>' : '') + '</div>' +
+      '<div class="dm">' + esc(fmtDokDatum(d.datum)) + (unsicher && !/unbestätigt|offen|unbekannt|Zeitraum/i.test(d.datum) ? ' · Datum unsicher' : '') +
+      ' · ' + esc(d.kategorie) + ' · ' + esc(d.id) + '</div></div>' + ico(I_RIGHT, 18, '#6e6875') + '</div>';
+  }).join('') : '<div class="ezeile"><div class="eu">' + ((akteStand.dokumente || []).length ? 'Keine Treffer.' : 'Noch keine Dokumente importiert.') + '</div></div>';
+}
+
+var BEZ_TEXT = { contains: 'enthält', contains_equivalent_report: 'enthält denselben Bericht wie', render_identical: 'bildgleich mit',
+  earlier_version: 'frühere Fassung von', expanded_version: 'erweiterte Fassung von', partial_copy: 'Teilkopie von', byte_identical: 'identische Kopie von' };
+function oeffneDok(id) {
+  var d = (akteStand.dokumente || []).filter(function (x) { return x.id === id; })[0];
+  if (!d) return;
+  $('dokTitel').textContent = d.titel;
+  var zeile = function (l, v) { return v ? '<tr><td>' + l + '</td><td>' + v + '</td></tr>' : ''; };
+  var ereignisse = (d.ereignisse || []).map(function (e) {
+    var von = e.from ? datumDe(e.from) : '', bis = e.to && e.to !== e.from ? datumDe(e.to) : '';
+    return esc(e.label) + ': ' + von + (bis ? '–' + bis : '');
+  }).join('<br>');
+  var bez = (d.beziehungen || []).map(function (b) {
+    return esc(BEZ_TEXT[b.type] || b.type) + ' <button class="quelle" data-dok="' + esc(b.target_id) + '">' + esc(b.target_id) + '</button>' +
+      (b.pdf_pages ? ' <span class="eu">(Seiten ' + esc(b.pdf_pages.join(', ')) + ')</span>' : '');
+  }).join('<br>');
+  $('dokInhalt').innerHTML = '<table class="metatab">' +
+    zeile('Datum', esc(fmtDokDatum(d.datum)) + (d.datumBasis ? '<div class="eu">' + esc(d.datumBasis) + '</div>' : '')) +
+    zeile('Ereignisse', ereignisse) +
+    zeile('Kategorie', esc(d.kategorie)) + zeile('Absender', esc(d.aussteller)) + zeile('Art', esc(d.art)) +
+    zeile('Seiten', esc(d.seiten)) + zeile('Nummer', esc(d.id)) + zeile('Originalname', '<span style="word-break:break-all">' + esc(d.originalname) + '</span>') +
+    zeile('Archiv', d.archiv ? esc(String(d.archivGrund).replace(/_/g, ' ')) : '') +
+    zeile('Bezug', bez) + '</table>' +
+    (d.zusammenfassung ? '<div class="dokabschnitt">Inhalt (Arbeitshilfe)</div><div class="doktext">' + esc(d.zusammenfassung) + '</div>' : '') +
+    ((d.hinweise || []).length ? '<div class="dokabschnitt">Prüfhinweise</div><div class="doktext">' + d.hinweise.map(esc).join('<br>') + '</div>' : '') +
+    '<p class="info" style="margin-top:14px">Die Inhaltsangabe ist eine Arbeitshilfe. Maßgeblich ist das Original-PDF.</p>';
+  zeigePdfKnopf(d);
+  $('dokBlatt').style.display = 'block';
+  $('dokBlatt').querySelector('.blatt').scrollTop = 0;
+}
+function zeigePdfKnopf(d) {
+  if (!d.vorhanden) { $('dokPdf').innerHTML = '<span class="info">Die Datei ist noch nicht importiert.</span>'; return; }
+  if (dateiCache[d.id]) {
+    $('dokPdf').innerHTML = '<a class="pill primaer" style="flex:1;justify-content:center;height:54px;font-size:17px;text-decoration:none" href="' + dateiCache[d.id] + '" target="_blank" rel="noopener">PDF öffnen</a>';
+    return;
+  }
+  $('dokPdf').innerHTML = '<button class="pill primaer" style="flex:1;justify-content:center;height:54px;font-size:17px" data-laden="' + esc(d.id) + '">PDF laden</button>';
+}
+// Zweistufig (laden, dann öffnen), damit das Öffnen direkt aus dem Antippen kommt und nicht als Popup blockiert wird
+$('dokPdf').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-laden]') : null;
+  if (!b) return;
+  var id = b.getAttribute('data-laden');
+  b.disabled = true; b.textContent = 'Wird geladen …';
+  rawCall('akteDatei', { id: id }).then(function (f) {
+    var bin = atob(f.daten), arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    dateiCache[id] = URL.createObjectURL(new Blob([arr], { type: f.mime || 'application/pdf' }));
+    var d = (akteStand.dokumente || []).filter(function (x) { return x.id === id; })[0];
+    if (d) zeigePdfKnopf(d);
+  }).catch(function (err) { b.disabled = false; b.textContent = 'PDF laden'; fehler(err); });
+});
+function schliesseDok() { $('dokBlatt').style.display = 'none'; }
+$('dokBlatt').addEventListener('click', function (e) {
+  if (e.target === $('dokBlatt')) { schliesseDok(); return; }
+  var q = e.target.closest ? e.target.closest('.quelle[data-dok]') : null;
+  if (q) oeffneDok(q.getAttribute('data-dok'));
+});
+$('dokListe').addEventListener('click', function (e) {
+  var z = e.target.closest ? e.target.closest('[data-dok]') : null;
+  if (z) oeffneDok(z.getAttribute('data-dok'));
+});
+$('dokKats').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-kat]') : null;
+  if (b) { dokKat = b.getAttribute('data-kat'); renderDokumente(); }
+});
+$('dokSuche').addEventListener('input', function () { dokSuche = $('dokSuche').value; renderDokumente(); });
+$('dokArchiv').addEventListener('change', function () { renderDokumente(); });
+$('ubListe').addEventListener('click', function (e) {
+  var q = e.target.closest ? e.target.closest('.quelle[data-dok]') : null;
+  if (q) { oeffneDok(q.getAttribute('data-dok')); return; }
+  var b = e.target.closest ? e.target.closest('[data-ub]') : null;
+  if (!b || !istAdmin()) return;
+  var f = (akteStand.ueberblick || []).filter(function (x) { return x.schluessel === b.getAttribute('data-ub'); })[0];
+  if (!f) return;
+  $('ubTitel').textContent = f.bezeichnung;
+  $('ub_schluessel').value = f.schluessel;
+  $('ub_wert').value = f.wert;
+  $('ub_quellen').value = f.quellen;
+  setzeUbStatus(f.status);
+  $('ubBlatt').style.display = 'block';
+});
+function setzeUbStatus(st) {
+  Array.prototype.forEach.call(document.querySelectorAll('#ub_status button'), function (x) {
+    x.setAttribute('aria-pressed', x.getAttribute('data-st') === st ? 'true' : 'false');
+  });
+}
+document.querySelector('#ub_status').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button[data-st]') : null;
+  if (b) setzeUbStatus(b.getAttribute('data-st'));
+});
+function ueberblickSpeichern() {
+  var st = 'zu_bestaetigen';
+  Array.prototype.forEach.call(document.querySelectorAll('#ub_status button'), function (x) { if (x.getAttribute('aria-pressed') === 'true') st = x.getAttribute('data-st'); });
+  var d = { schluessel: $('ub_schluessel').value, wert: $('ub_wert').value.trim(), status: st, quellen: $('ub_quellen').value.trim() };
+  // sofort anzeigen, dann speichern
+  (akteStand.ueberblick || []).forEach(function (f) { if (f.schluessel === d.schluessel) { f.wert = d.wert; f.status = d.status; f.quellen = d.quellen; } });
+  $('ubBlatt').style.display = 'none';
+  renderUeberblick();
+  call('ueberblickSpeichern', d).then(function (s) {
+    akteStand = s;
+    try { localStorage.setItem('med_akte', JSON.stringify(s)); } catch (e) {}
+    renderAkte(); meldung('Gespeichert');
+  }).catch(function (e) { fehler(e); ladeAkte(); });
+}
+
+/* ---- Zugänge verwalten (nur Admin) ---- */
+var zugaengeStand = null, offeneZugang = null, pinSichtbar = {}, neueRolle = 'nutzer';
+function ladeZugaenge() {
+  if (!istAdmin()) return;
+  call('zugaenge').then(function (s) { zugaengeStand = s; renderZugaenge(); }).catch(fehler);
+}
+function personLink(z) {
+  var base = location.origin + location.pathname;
+  return base + '?zugang=' + encodeURIComponent(z.schluessel) + '&api=' + encodeURIComponent(zugang().url);
+}
+function renderZugaenge() {
+  var s = zugaengeStand;
+  if (!s) return;
+  var ich = state.ich || {};
+  $('altWarnung').innerHTML = s.altAktiv
+    ? '<div class="ezeile"><div style="min-width:0"><div class="et">Alter gemeinsamer Schlüssel ist noch aktiv</div><div class="eu">' +
+      (ich.alt ? 'Öffne zuerst deinen persönlichen Link auf diesem Gerät, dann hier abschalten.' : 'Wer ihn noch hat, kommt als Admin hinein. Abschalten, sobald alle ihre Links nutzen.') +
+      '</div></div>' + (ich.alt ? '' : '<button class="pill klein gefahr" onclick="zugangAktion(\'altSchluesselAus\', {}, \'Den alten gemeinsamen Schlüssel endgültig abschalten?\')">Abschalten</button>') + '</div>'
+    : '';
+  $('zugangListe').innerHTML = s.zugaenge.length ? s.zugaenge.map(function (z) {
+    var auf = offeneZugang === z.id;
+    var status = z.gesperrt ? 'gesperrt' : (z.geraete ? z.geraete + (z.geraete === 1 ? ' Gerät' : ' Geräte') : 'noch nicht eingerichtet') +
+      (z.zuletzt ? ' · zuletzt ' + esc(z.zuletzt.slice(8, 10) + '.' + z.zuletzt.slice(5, 7) + '. ' + z.zuletzt.slice(11)) : '');
+    var aktionen = '';
+    if (auf) {
+      var a = function (txt, akt, frage, klasse) {
+        return '<button class="pill klein' + (klasse ? ' ' + klasse : '') + '" data-z="' + esc(z.id) + '" data-zakt="' + akt + '"' + (frage ? ' data-frage="' + esc(frage) + '"' : '') + '>' + txt + '</button>';
+      };
+      aktionen = '<div class="zaktionen">' +
+        a('Link teilen', 'teilen', '', 'primaer') +
+        a(pinSichtbar[z.id] ? 'PIN ' + esc(z.pin) : 'PIN zeigen', 'pin') +
+        a(z.gesperrt ? 'Entsperren' : 'Sperren', z.gesperrt ? 'entsperren' : 'sperren', z.gesperrt ? '' : 'Zugang von ' + z.name + ' sperren? Alle Geräte verlieren sofort den Zugriff.') +
+        a(z.rolle === 'admin' ? 'Zu Nutzer machen' : 'Zu Admin machen', z.rolle === 'admin' ? 'nutzer' : 'admin', 'Rolle von ' + z.name + ' ändern?') +
+        a('Neue PIN', 'neuePin', 'Neue PIN für ' + z.name + '? Bereits eingerichtete Geräte bleiben angemeldet.') +
+        a('Geräte abmelden', 'abmelden', 'Alle Geräte von ' + z.name + ' abmelden? Beim nächsten Öffnen wird die PIN wieder abgefragt.') +
+        a('Neuer Link', 'neuerLink', 'Neuen Link für ' + z.name + ' erzeugen? Der alte Link funktioniert danach nicht mehr.') +
+        (ich.name === z.name && !ich.alt ? '' : a('Löschen', 'loeschen', 'Zugang von ' + z.name + ' löschen?', 'gefahr')) +
+        '</div>' + (pinSichtbar[z.id + '_link'] ? '<div class="zlink">' + esc(personLink(z)) + '</div>' : '');
+    }
+    return '<div class="ezeile zperson" data-zoffen="' + esc(z.id) + '" style="display:block">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="min-width:0"><div class="et">' + esc(z.name) +
+      '<span class="rollenetikett' + (z.rolle === 'admin' ? ' admin' : '') + '">' + (z.rolle === 'admin' ? 'Admin' : 'Nutzer') + '</span>' +
+      (z.gesperrt ? '<span class="rollenetikett gesperrt">gesperrt</span>' : '') + '</div><div class="eu">' + status + '</div></div>' +
+      ico(auf ? I_AUF : I_AB, 20, '#6e6875') + '</div>' + aktionen + '</div>';
+  }).join('') : '<div class="ezeile"><div class="eu">Noch keine Zugänge. Im Apps-Script-Editor einmal zugaengeEinrichten ausführen oder unten eine Person anlegen.</div></div>';
+}
+function zugangAktion(aktion, daten, frage) {
+  if (frage && !confirm(frage)) return;
+  call(aktion, daten).then(function (s) { zugaengeStand = s; renderZugaenge(); meldung('Gespeichert'); }).catch(fehler);
+}
+function teileLink(z) {
+  var link = personLink(z);
+  var text = 'Dein Zugang zur Medikamenten-App von Bastian (' + z.name + '). Die PIN bekommst du getrennt.';
+  if (navigator.share) { navigator.share({ title: 'Medikamenten-App', text: text, url: link }).catch(function () {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(function () { meldung('Link kopiert'); }, function () { pinSichtbar[z.id + '_link'] = true; renderZugaenge(); });
+    return;
+  }
+  pinSichtbar[z.id + '_link'] = true; renderZugaenge();   // zum Markieren und Kopieren anzeigen
+}
+$('zugangListe').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-zakt]') : null;
+  if (b) {
+    var id = b.getAttribute('data-z'), akt = b.getAttribute('data-zakt'), frage = b.getAttribute('data-frage') || '';
+    var z = zugaengeStand.zugaenge.filter(function (x) { return x.id === id; })[0];
+    if (!z) return;
+    if (akt === 'teilen') teileLink(z);
+    else if (akt === 'pin') { pinSichtbar[id] = !pinSichtbar[id]; renderZugaenge(); }
+    else if (akt === 'sperren') zugangAktion('zugangAendern', { id: id, gesperrt: true }, frage);
+    else if (akt === 'entsperren') zugangAktion('zugangAendern', { id: id, gesperrt: false });
+    else if (akt === 'admin' || akt === 'nutzer') zugangAktion('zugangAendern', { id: id, rolle: akt }, frage);
+    else if (akt === 'neuePin') zugangAktion('zugangNeuePin', { id: id }, frage);
+    else if (akt === 'abmelden') zugangAktion('zugangGeraeteAbmelden', { id: id }, frage);
+    else if (akt === 'neuerLink') zugangAktion('zugangNeuerLink', { id: id }, frage);
+    else if (akt === 'loeschen') zugangAktion('zugangLoeschen', { id: id }, frage);
+    return;
+  }
+  var zeile = e.target.closest ? e.target.closest('[data-zoffen]') : null;
+  if (zeile) { var zid = zeile.getAttribute('data-zoffen'); offeneZugang = offeneZugang === zid ? null : zid; renderZugaenge(); }
+});
+document.querySelector('#np_rolle').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button[data-rolle]') : null;
+  if (!b) return;
+  neueRolle = b.getAttribute('data-rolle');
+  Array.prototype.forEach.call(document.querySelectorAll('#np_rolle button'), function (x) {
+    x.setAttribute('aria-pressed', x.getAttribute('data-rolle') === neueRolle ? 'true' : 'false');
+  });
+});
+function neuePerson() {
+  var name = String($('np_name').value).trim();
+  if (!name) { meldung('Bitte einen Namen eingeben.', true); return; }
+  call('zugangNeu', { name: name, rolle: neueRolle }).then(function (s) {
+    zugaengeStand = s; $('np_name').value = '';
+    var neuZ = s.zugaenge.filter(function (x) { return x.name === name; }).slice(-1)[0];
+    if (neuZ) { offeneZugang = neuZ.id; pinSichtbar[neuZ.id] = true; }
+    renderZugaenge(); meldung('Angelegt. Jetzt Link teilen und PIN durchgeben.');
+  }).catch(fehler);
+}
+
 /* ---- Seiten: Übersicht und Einstellungen. Die Zurück-Taste des Handys führt zur Übersicht. ---- */
 function zeigeSeite(name, ausVerlauf) {
   var einst = name === 'einst';
   $('ansichtStart').style.display = einst ? 'none' : '';
   $('ansichtEinst').style.display = einst ? '' : 'none';
   if (einst && !ausVerlauf) { try { history.pushState({ seite: 'einst' }, ''); } catch (e) {} }
+  if (einst) ladeZugaenge();
   window.scrollTo(0, 0);
 }
 function zurueck() {
@@ -1720,7 +2235,10 @@ function fuehreAktualisierungAus() {
   call('lade').then(function (s) {
     setState(s);
     planeAktualisierung();
-  }).catch(function () { planeAktualisierung(); });
+  }).catch(function (e) {
+    if (e && ZUGANGS_CODES.indexOf(e.code) >= 0) { zugangsProblem(e); return; }   // z. B. inzwischen gesperrt
+    planeAktualisierung();
+  });
 }
 
 function sofortAktualisieren() {
@@ -1738,7 +2256,9 @@ document.addEventListener('visibilitychange', function () {
 });
 window.addEventListener('focus', sofortAktualisieren);
 
-if (zugang().url && zugang().key) { starte(); } else { zeigeZugang(); }
+linkUebernehmen();
+document.body.classList.toggle('nutzer', !istAdmin());   // bis die Rolle feststeht: keine Bearbeitungsknöpfe
+if (hatZugang()) { starte(); } else { zeigeZugang(); }
 </script>
 </body>
 </html>
