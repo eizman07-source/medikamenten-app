@@ -210,7 +210,9 @@
   .rollenetikett.gesperrt { background: #fde4ec; color: #a1173f; }
   .zaktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .zperson { cursor: pointer; }
-  .zlink { margin-top: 8px; font-size: 12px; word-break: break-all; background: var(--flaeche); padding: 8px 10px; border-radius: 10px; user-select: all; }
+  .zlink { margin-top: 8px; font-size: 12px; background: var(--flaeche); padding: 8px 10px; border-radius: 10px; }
+  .zlink .zwert { margin-top: 4px; word-break: break-all; user-select: all; }
+  .zlink .pill { background: #fff; }
   #toast { position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
     background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 999px; display: none; max-width: 90%;
     font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
@@ -302,6 +304,11 @@
       <div class="ezeile">
         <div><div class="et" id="ichName">Angemeldet</div><div class="eu" id="ichRolle"></div></div>
         <button class="pill klein" onclick="abmelden()">Abmelden</button>
+      </div>
+      <div class="ezeile" style="display:block">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="et">Web-App-URL</div>
+        <button class="pill klein" onclick="inZwischenablage(zugang().url)">Kopieren</button></div>
+        <div class="eu" id="webAppUrl" style="word-break:break-all;margin-top:4px"></div>
       </div>
     </div>
     <p class="info" style="margin:14px 4px">Änderungen werden sofort gespeichert.</p>
@@ -424,9 +431,10 @@
 <div id="zugang" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="zTitel">
   <div class="griffbalken"></div>
   <div class="blattkopf"><h2 id="zTitel">Zugang</h2><button class="rund klein" id="z_abbruch" aria-label="Schließen" onclick="$('zugang').style.display='none'"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
-  <p class="info">Wird nur auf diesem Gerät im Browser gespeichert.</p>
-  <label for="z_url">Web-App-URL (endet auf /exec)</label><input type="text" id="z_url" autocomplete="off">
-  <label for="z_key">Zugangsschlüssel</label><input type="text" id="z_key" autocomplete="off">
+  <p class="info">Am einfachsten: den kompletten Link einfach im Browser öffnen. Alternativ hier eintragen, wird nur auf diesem Gerät gespeichert.</p>
+  <label for="z_url">Web-App-URL (endet auf /exec)</label><input type="text" id="z_url" autocomplete="off" autocapitalize="off">
+  <label for="z_key">Zugangsschlüssel (oder den kompletten Link)</label><input type="text" id="z_key" autocomplete="off" autocapitalize="off">
+  <p class="info" id="z_fehler" style="color:#a1173f;margin:10px 0 0;min-height:18px"></p>
   <div class="blattfuss"><button class="pill primaer" onclick="speichereZugang()">Speichern</button></div>
 </div></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -489,17 +497,41 @@ function zeigeZugang() {
   $('z_abbruch').style.display = hatZugang() ? '' : 'none';
   $('zugang').style.display = 'block';
 }
+// Akzeptiert: Web-App-URL + persönlicher Schlüssel, Web-App-URL + alter gemeinsamer Schlüssel, oder den kompletten Link
 function speichereZugang() {
   var url = $('z_url').value.trim(), key = $('z_key').value.trim();
-  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { meldung('Die URL muss auf /exec enden.', true); return; }
-  if (!key) { meldung('Zugangsschlüssel fehlt.', true); return; }
+  $('z_fehler').textContent = '';
+  [key, url].forEach(function (t) {
+    var m = /[?&]zugang=([^&\s]+)/.exec(t);
+    if (m) {
+      key = decodeURIComponent(m[1]);
+      var a = /[?&]api=([^&\s]+)/.exec(t);
+      if (a) url = decodeURIComponent(a[1]);
+    }
+  });
+  if (!/^https?:\/\/\S+\/exec$/.test(url)) { $('z_fehler').textContent = 'Die Web-App-URL muss auf /exec enden.'; return; }
+  if (!key) { $('z_fehler').textContent = 'Zugangsschlüssel fehlt.'; return; }
   try {
     localStorage.setItem('med_url', url);
-    localStorage.setItem('med_key', key);
-    localStorage.removeItem('med_zugang'); localStorage.removeItem('med_geraet');
-  } catch (e) { meldung('Der Browser erlaubt kein Speichern (privater Modus?).', true); return; }
-  $('zugang').style.display = 'none';
-  laden();
+    localStorage.setItem('med_zugang', key);   // zuerst als persönlicher Schlüssel versuchen
+    localStorage.removeItem('med_key'); localStorage.removeItem('med_geraet'); localStorage.removeItem(SNAP_KEY); localStorage.removeItem('med_akte');
+  } catch (e) { $('z_fehler').textContent = 'Der Browser erlaubt kein Speichern (privater Modus?).'; return; }
+  rawCall('lade').then(function (s) {
+    $('zugang').style.display = 'none'; setState(s); planeAktualisierung();
+  }).catch(function (e) {
+    if (e && e.code === 'kein_zugang') {
+      // kein persönlicher Schlüssel: als alten gemeinsamen Schlüssel versuchen
+      try { localStorage.removeItem('med_zugang'); localStorage.setItem('med_key', key); } catch (x) {}
+      return rawCall('lade').then(function (s) {
+        $('zugang').style.display = 'none'; setState(s); planeAktualisierung();
+      }).catch(function (e2) {
+        try { localStorage.removeItem('med_key'); } catch (x) {}
+        $('z_fehler').textContent = 'Dieser Schlüssel ist nicht gültig. ' + (e2.message || '');
+      });
+    }
+    if (e && ZUGANGS_CODES.indexOf(e.code) >= 0) { $('zugang').style.display = 'none'; zugangsProblem(e); return; }   // z. B. PIN abfragen
+    $('z_fehler').textContent = e.message;
+  });
 }
 
 /* ---- Server-Aufrufe ----
@@ -1270,13 +1302,14 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-05 · neuer Link zuverlässig';
+var APP_VERSION = '2026-10-05 · Schlüssel und URL getrennt';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
   if (state.ich) {
     $('ichName').textContent = 'Angemeldet als ' + state.ich.name;
     $('ichRolle').textContent = state.ich.rolle === 'admin' ? 'Admin: darf alles bearbeiten' : 'Nutzer: nur lesen';
+    $('webAppUrl').textContent = zugang().url;
   }
 }
 function renderKopf() {
@@ -2097,6 +2130,18 @@ function personLink(z) {
   var base = location.origin + location.pathname;
   return base + '?zugang=' + encodeURIComponent(z.schluessel) + '&api=' + encodeURIComponent(zugang().url);
 }
+function kopierZeile(titel, wert, hinweis) {
+  return '<div class="zlink"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+    '<div class="eu" style="margin:0;font-weight:700">' + titel + '</div>' +
+    '<button class="pill klein" data-kopie="1" data-wert="' + esc(wert) + '">Kopieren</button></div>' +
+    '<div class="zwert">' + esc(wert) + '</div>' + (hinweis ? '<div class="eu" style="margin-top:4px">' + hinweis + '</div>' : '') + '</div>';
+}
+function zugangsDetails(z) {
+  return kopierZeile('Link (enthält alles, einfach im Browser öffnen)', personLink(z)) +
+    kopierZeile('Web-App-URL (für alle gleich)', zugang().url) +
+    kopierZeile('Zugangsschlüssel von ' + esc(z.name), z.schluessel, 'Nur nötig, wenn jemand die App ohne Link einrichtet.') +
+    '<div class="zlink"><div class="eu" style="margin:0;font-weight:700">PIN</div><div style="margin-top:4px">' + esc(z.pin) + '</div></div>';
+}
 function renderZugaenge() {
   var s = zugaengeStand;
   if (!s) return;
@@ -2118,7 +2163,7 @@ function renderZugaenge() {
       aktionen = '<div class="zaktionen">' +
         (navigator.share ? a('Teilen', 'teilen', '', 'primaer') : '') +
         a('Link kopieren', 'kopieren', '', navigator.share ? '' : 'primaer') +
-        a(pinSichtbar[z.id + '_link'] ? 'Link ausblenden' : 'Link anzeigen', 'zeigen') +
+        a(pinSichtbar[z.id + '_link'] ? 'Details ausblenden' : 'Link und Schlüssel', 'zeigen') +
         a(pinSichtbar[z.id] ? 'PIN ' + esc(z.pin) : 'PIN zeigen', 'pin') +
         a(z.gesperrt ? 'Entsperren' : 'Sperren', z.gesperrt ? 'entsperren' : 'sperren', z.gesperrt ? '' : 'Zugang von ' + z.name + ' sperren? Alle Geräte verlieren sofort den Zugriff.') +
         a(z.rolle === 'admin' ? 'Zu Nutzer machen' : 'Zu Admin machen', z.rolle === 'admin' ? 'nutzer' : 'admin', 'Rolle von ' + z.name + ' ändern?') +
@@ -2126,7 +2171,7 @@ function renderZugaenge() {
         a('Geräte abmelden', 'abmelden', 'Alle Geräte von ' + z.name + ' abmelden? Beim nächsten Öffnen wird die PIN wieder abgefragt.') +
         a('Neuer Link', 'neuerLink', 'Neuen Link für ' + z.name + ' erzeugen? Der alte Link funktioniert danach nicht mehr.') +
         (ich.name === z.name && !ich.alt ? '' : a('Löschen', 'loeschen', 'Zugang von ' + z.name + ' löschen?', 'gefahr')) +
-        '</div>' + (pinSichtbar[z.id + '_link'] ? '<div class="zlink">' + esc(personLink(z)) + '</div>' : '');
+        '</div>' + (pinSichtbar[z.id + '_link'] ? zugangsDetails(z) : '');
     }
     return '<div class="ezeile zperson" data-zoffen="' + esc(z.id) + '" style="display:block">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="min-width:0"><div class="et">' + esc(z.name) +
@@ -2163,7 +2208,14 @@ function teileLink(z) {
   }
   pinSichtbar[z.id + '_link'] = true; renderZugaenge();   // zum Markieren und Kopieren anzeigen
 }
+function inZwischenablage(wert) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(wert).then(function () { meldung('Kopiert'); }, function () { meldung('Bitte den Text markieren und kopieren.', true); });
+  } else meldung('Bitte den Text markieren und kopieren.', true);
+}
 $('zugangListe').addEventListener('click', function (e) {
+  var k = e.target.closest ? e.target.closest('[data-kopie]') : null;
+  if (k) { inZwischenablage(k.getAttribute('data-wert')); return; }
   var b = e.target.closest ? e.target.closest('[data-zakt]') : null;
   if (b) {
     var id = b.getAttribute('data-z'), akt = b.getAttribute('data-zakt'), frage = b.getAttribute('data-frage') || '';
