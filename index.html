@@ -1270,7 +1270,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-05 · Link kopieren am Laptop';
+var APP_VERSION = '2026-10-05 · neuer Link zuverlässig';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
@@ -2113,7 +2113,7 @@ function renderZugaenge() {
     var aktionen = '';
     if (auf) {
       var a = function (txt, akt, frage, klasse) {
-        return '<button class="pill klein' + (klasse ? ' ' + klasse : '') + '" data-z="' + esc(z.id) + '" data-zakt="' + akt + '"' + (frage ? ' data-frage="' + esc(frage) + '"' : '') + '>' + txt + '</button>';
+        return '<button class="pill klein' + (klasse ? ' ' + klasse : '') + '"' + (zugangLaeuft ? ' disabled' : '') + ' data-z="' + esc(z.id) + '" data-zakt="' + akt + '"' + (frage ? ' data-frage="' + esc(frage) + '"' : '') + '>' + txt + '</button>';
       };
       aktionen = '<div class="zaktionen">' +
         (navigator.share ? a('Teilen', 'teilen', '', 'primaer') : '') +
@@ -2135,9 +2135,15 @@ function renderZugaenge() {
       ico(auf ? I_AUF : I_AB, 20, '#6e6875') + '</div>' + aktionen + '</div>';
   }).join('') : '<div class="ezeile"><div class="eu">Noch keine Zugänge. Im Apps-Script-Editor einmal zugaengeEinrichten ausführen oder unten eine Person anlegen.</div></div>';
 }
+var zugangLaeuft = false;
 function zugangAktion(aktion, daten, frage) {
   if (frage && !confirm(frage)) return;
-  call(aktion, daten).then(function (s) { zugaengeStand = s; renderZugaenge(); meldung('Gespeichert'); }).catch(fehler);
+  zugangLaeuft = true; renderZugaenge();
+  meldung(aktion === 'zugangNeuerLink' ? 'Neuer Link wird erzeugt …' : 'Wird gespeichert …');
+  call(aktion, daten).then(function (s) {
+    zugangLaeuft = false; zugaengeStand = s; renderZugaenge();
+    meldung(aktion === 'zugangNeuerLink' ? 'Neuer Link erzeugt. Jetzt kopieren oder teilen.' : 'Gespeichert');
+  }).catch(function (e) { zugangLaeuft = false; renderZugaenge(); fehler(e); });
 }
 // Am Laptop gibt es oft kein Teilen-Menü: dann kopieren, und wenn auch das nicht geht, den Link zum Markieren anzeigen
 function kopiereLink(z) {
