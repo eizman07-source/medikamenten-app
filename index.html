@@ -253,6 +253,7 @@
     <div id="liste">Lädt …</div>
     <div class="abschnitt" id="kopfAT" style="display:none"><h2>Aufgaben &amp; Termine</h2><span class="anz" id="anzAT"></span></div>
     <div id="listeAT"></div>
+    <div id="erledigteZeile" style="display:none;margin:4px 4px 0"><button class="pill klein" id="erledigteKnopf" aria-pressed="false"></button></div>
     </div>
     <div id="bereichAkte" style="display:none">
       <div class="abschnitt" style="margin-top:4px;align-items:center"><h2>Auf einen Blick</h2><button class="pill klein primaer" style="margin-left:auto" onclick="oeffneTeilen()">Teilen</button></div>
@@ -319,7 +320,7 @@
     <div class="gruppe" id="ferienListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
     <div style="margin:10px 4px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="pill klein primaer" onclick="ferienBearbeiten(null)">Ferienblock hinzufügen</button>
-      <span class="info" style="margin:0">Quelle: schulferien.org. Pro Ferienblock: Antrag 28 Tage vor Beginn, Nachfrage 14 Tage später. Einzelne unterrichtsfreie Tage sind nicht enthalten.</span>
+      <span class="info" style="margin:0">Quelle: schulferien.org. Pro Ferienblock: Antrag 28 Tage vor Beginn. Die Nachfrage erscheint, sobald der Antrag erledigt ist, und erinnert 14 Tage nach dem Erledigen. Einzelne unterrichtsfreie Tage sind nicht enthalten.</span>
     </div>
 
     <div class="grtitel">Geteilte Überblicke</div>
@@ -645,7 +646,12 @@ function rawCall(aktion, daten, versuch) {
         throw u;
       }
       if (j.geraet) { try { localStorage.setItem('med_geraet', j.geraet); } catch (err) {} pinEingabe = ''; }
-      if (!j.ok) { var f = new Error(j.fehler || 'Unbekannter Fehler'); if (j.code) f.code = j.code; throw f; }
+      if (!j.ok) {
+        var meldungText = j.fehler === 'Unbekannte Aktion.'
+          ? 'Die Web-App im Apps Script ist noch nicht auf dem neuesten Stand (Aktion „' + aktion + '“ unbekannt). Bitte Code.gs ersetzen und eine neue Version bereitstellen.'
+          : (j.fehler || 'Unbekannter Fehler');
+        var f = new Error(meldungText); if (j.code) f.code = j.code; throw f;
+      }
       if (j.state && typeof j.state === 'object') j.state.__seq = seq;
       return j.state;
     })
@@ -954,9 +960,13 @@ function dosisLabel(m) {
 /* ---- Einheiten: Gruppen zusammenfassen ---- */
 function artVon(m) { return m.art === 'aufgabe' || m.art === 'termin' ? m.art : 'rezept'; }
 
+// Erledigte Aufgaben (inaktive Aufgaben) verschwinden aus der Liste. Über "Erledigte anzeigen" sind sie wieder da.
+var zeigeErledigte = false;
+function istErledigteAufgabe(m) { return artVon(m) === 'aufgabe' && !m.aktiv; }
 function einheiten() {
   var map = {}, liste = [];
   state.medikamente.forEach(function (m) {
+    if (istErledigteAufgabe(m) && !zeigeErledigte) return;
     var key = m.gruppe ? 'g:' + m.gruppe : 'i:' + m.id;
     if (!map[key]) { map[key] = { key: key, name: m.gruppe || m.name, mitglieder: [], gruppe: !!m.gruppe }; liste.push(map[key]); }
     map[key].mitglieder.push(m);
@@ -1376,9 +1386,15 @@ function renderListe() {
   $('kopfAT').style.display = at.length ? '' : 'none';
   $('anzRez').textContent = rez.length;
   $('anzAT').textContent = at.length;
+  var nErl = state.medikamente.filter(istErledigteAufgabe).length;
+  $('erledigteZeile').style.display = nErl ? '' : 'none';
+  $('erledigteKnopf').textContent = zeigeErledigte ? 'Erledigte Aufgaben ausblenden' : 'Erledigte Aufgaben anzeigen (' + nErl + ')';
+  $('erledigteKnopf').setAttribute('aria-pressed', zeigeErledigte ? 'true' : 'false');
   if (h1 !== letzteListe) { letzteListe = h1; $('liste').innerHTML = h1; }   // unverändert: DOM nicht anfassen
   if (h2 !== letzteListeAT) { letzteListeAT = h2; $('listeAT').innerHTML = h2; }
 }
+
+$('erledigteKnopf').addEventListener('click', function () { zeigeErledigte = !zeigeErledigte; letzteListe = ''; letzteListeAT = ''; render(); });
 
 // Eingabefelder für Vorlauf/Bündelung nur überschreiben, wenn sich der Wert auf dem Server geändert hat
 // und das Feld nicht gerade bearbeitet wird. So geht Getipptes nicht verloren.
@@ -1393,7 +1409,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-06 · Fahrdienst Ferien';
+var APP_VERSION = '2026-10-07 · Nachfrage 14 Tage nach Antrag';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
@@ -2487,7 +2503,7 @@ function renderFerien() {
     if (j !== jahr) { jahr = j; html += '<div class="ferienjahr">' + j + '</div>'; }
     html += '<div class="ezeile' + (f.vorbei ? ' vorbei' : '') + '"><div style="min-width:0"><div class="et">' + esc(f.name) + '</div>' +
       '<div class="eu">' + datumDe(f.von) + ' bis ' + datumDe(f.bis) +
-      (f.vorbei ? ' · vorbei' : ' · Antrag ' + datumDe(f.antrag) + ', Nachfrage ' + datumDe(f.nachfrage)) + '</div></div>' +
+      (f.vorbei ? ' · vorbei' : ' · Antrag fällig ' + datumDe(f.antrag)) + '</div></div>' +
       '<button class="pill klein" data-ferien="' + esc(f.id) + '">Bearbeiten</button></div>';
   });
   html += '<div class="ezeile"><div class="eu">' + (+jahr + 1) + ': noch keine Termine. Bitte ergänzen, sobald sie veröffentlicht sind.</div></div>';
