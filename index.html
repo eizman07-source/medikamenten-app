@@ -177,7 +177,10 @@
 
   /* Nutzer (nur lesen): keine Bearbeitungsknöpfe. Das Backend lehnt solche Aktionen ohnehin ab. */
   body.nutzer .fab, body.nutzer #einstKnopf, body.nutzer .griff, body.nutzer [data-a="lieferung"], body.nutzer [data-a="erledigt"],
-  body.nutzer [data-a="erledigt1"], body.nutzer [data-a="edit"], body.nutzer [data-a="mail"] { display: none !important; }
+  body.nutzer [data-a="erledigt1"], body.nutzer [data-a="edit"], body.nutzer [data-a="mail"], body.nutzer [data-a="fdTage"], body.nutzer [data-a="fdAntwort"] { display: none !important; }
+  .wert .v.mehrzeilig { white-space: pre-line; }
+  .ferienjahr { font-size: 13px; font-weight: 700; color: var(--grau); letter-spacing: .04em; padding: 12px 16px 4px; }
+  .ezeile.vorbei .et, .ezeile.vorbei .eu { color: #a39dab; }
   .feld { display: block; width: 100%; height: 44px; margin-top: 8px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--flaeche); font: inherit; font-size: 16px; color: var(--ink); }
   .chips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 2px 4px; scrollbar-width: none; }
   .chips::-webkit-scrollbar { display: none; }
@@ -311,6 +314,13 @@
       </div>
     </div>
     <p class="info" style="margin:8px 4px 0">Jede Person bekommt einen eigenen Link. Die PIN gibst du ihr getrennt davon, zum Beispiel am Telefon. Sie wird einmal pro Gerät abgefragt.</p>
+
+    <div class="grtitel">Ferien Sachsen (Fahrdienst)</div>
+    <div class="gruppe" id="ferienListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
+    <div style="margin:10px 4px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="pill klein primaer" onclick="ferienBearbeiten(null)">Ferienblock hinzufügen</button>
+      <span class="info" style="margin:0">Quelle: schulferien.org. Pro Ferienblock: Antrag 28 Tage vor Beginn, Nachfrage 14 Tage später. Einzelne unterrichtsfreie Tage sind nicht enthalten.</span>
+    </div>
 
     <div class="grtitel">Geteilte Überblicke</div>
     <div class="gruppe" id="freigabeListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
@@ -449,6 +459,28 @@
 </div></div>
 
 <div id="blickSeite" style="display:none"></div>
+
+<div id="ferienBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="ferienTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="ferienTitel" style="font-size:22px">Ferienblock</h2><button class="rund klein" aria-label="Schließen" onclick="$('ferienBlatt').style.display='none'"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <input type="hidden" id="fe_id">
+  <label for="fe_name">Name (z. B. „Herbstferien 2030“)</label><input type="text" id="fe_name" autocomplete="off">
+  <div class="zeile">
+    <div><label for="fe_von">Erster Ferientag</label><input type="date" id="fe_von"></div>
+    <div><label for="fe_bis">Letzter Ferientag</label><input type="date" id="fe_bis"></div>
+  </div>
+  <p class="info" id="fe_info" style="margin:10px 0 0"></p>
+  <div class="blattfuss"><button class="pill gefahr" id="fe_loeschen" onclick="ferienLoeschen()">Löschen</button><button class="pill primaer" style="flex:1" onclick="ferienSpeichern()">Speichern</button></div>
+</div></div>
+
+<div id="fdBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="fdTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="fdTitel" style="font-size:22px">Benötigte Tage</h2><button class="rund klein" aria-label="Schließen" onclick="$('fdBlatt').style.display='none'"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <input type="hidden" id="fd_ferien">
+  <p class="info" style="margin-top:8px">Vorbelegt mit allen Werktagen der Ferien (ohne Wochenenden und Feiertage). Nicht benötigte Tage einfach löschen. Gilt für Antrag und Nachfrage.</p>
+  <label for="fd_tage">Tage für den Fahrdienst</label><textarea id="fd_tage" style="min-height:130px"></textarea>
+  <div class="blattfuss"><button class="pill" onclick="fdTageZuruecksetzen()">Alle Werktage</button><button class="pill primaer" style="flex:1" onclick="fdTageSpeichern()">Speichern</button></div>
+</div></div>
 
 <div id="pinBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="pinTitel">
   <div class="griffbalken"></div>
@@ -935,7 +967,7 @@ function einheiten() {
     var basis = u.aktiv ? aktive : u.mitglieder;
     var rez = basis.filter(function (m) { return artVon(m) === 'rezept'; });
     u.rezept = u.mitglieder.some(function (m) { return artVon(m) === 'rezept'; });   // gehört in den Bereich "Rezepte"
-    u.hatText = basis.some(function (m) { return !!m.text; });
+    u.hatText = basis.some(function (m) { return !!m.text || !!m.fd; });
     // nächste Frist: früheste Frist, vergangene Termine zählen nicht mehr
     var kand = basis.filter(function (m) { return m.frist && !(artVon(m) === 'termin' && m.frist < state.heute); })
       .sort(function (x, y) { return x.frist < y.frist ? -1 : x.frist > y.frist ? 1 : 0; });
@@ -1228,6 +1260,12 @@ function mitgliedZeilen(m, mitDatum) {
     z += (m.text ? wert('Mail-Text', m.text) : '') + (m.foto ? wert('Foto', 'wird angehängt') : '');
   } else if (art === 'aufgabe') {
     if (mitDatum && m.frist) z += wert('Fällig', datumDe(m.frist));
+    if (m.fd) {
+      z += wert('Art', m.fd.typ === 'nachfrage' ? 'Fahrdienst Ferien: Nachfrage' : 'Fahrdienst Ferien: Antrag');
+      z += wert('Ferien', m.fd.ferien + ' (' + datumDe(m.fd.von) + ' bis ' + datumDe(m.fd.bis) + ')');
+      z += '<div class="wert"><div class="l">Benötigte Tage</div><div class="v mehrzeilig">' + esc(m.fd.tage || 'keine eingetragen') + '</div></div>';
+      z += wert('Mail an', 'pscholz-helmig@dresden.de, Cc franka.salzer@outlook.com');
+    }
     z += m.wiederholung ? wert('Wiederholung', 'alle ' + m.wiederholung + (m.wiederholung === 1 ? ' Monat' : ' Monate')) : '';
     z += m.text ? wert('Mail-Text', m.text) : '';
   } else {
@@ -1298,8 +1336,10 @@ function karteHtml(u) {
     var mailKnopf = u.hatText ? '<button class="pill klein" data-a="mail" data-k="' + k + '">' + ico(I_MAIL) + 'Mail auslösen</button>' : '';
     if (!u.gruppe) {
       var m = u.mitglieder[0];
+      var fdKnoepfe = m.fd && m.aktiv ? '<button class="pill klein" data-a="fdTage" data-k="' + esc(m.id) + '">' + ico(I_EDIT) + 'Tage ändern</button>' +
+        '<button class="pill klein" data-a="fdAntwort" data-k="' + esc(m.id) + '">' + ico(I_CHECK) + 'Antwort erhalten</button>' : '';
       details = mitgliedZeilen(m, false) +
-        '<div class="aktionen"><button class="pill klein" data-a="edit" data-k="' + esc(m.id) + '">' + ico(I_EDIT) + 'Bearbeiten</button>' + mailKnopf + '</div>';
+        '<div class="aktionen"><button class="pill klein" data-a="edit" data-k="' + esc(m.id) + '">' + ico(I_EDIT) + 'Bearbeiten</button>' + fdKnoepfe + mailKnopf + '</div>';
     } else {
       details = (mailKnopf ? '<div class="aktionen">' + mailKnopf + '</div>' : '') +
         u.mitglieder.map(function (m) {
@@ -1353,7 +1393,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-06 · PDF-Laden, Scrollen, Zahnrad';
+var APP_VERSION = '2026-10-06 · Fahrdienst Ferien';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
@@ -1392,6 +1432,8 @@ function klickListe(e) {
   else if (a === 'lieferung') { lieferung(k); }
   else if (a === 'erledigt') { erledigt(findeEinheit(k).aufgabeIds, findeEinheit(k).name); }
   else if (a === 'erledigt1') { var m = finde(k); erledigt([k], m ? m.name : ''); }
+  else if (a === 'fdTage') { fdTageBearbeiten(finde(k)); }
+  else if (a === 'fdAntwort') { fdAntwortErhalten(finde(k)); }
   else if (a === 'mail') { einzelmail(k); }
 }
 $('liste').addEventListener('click', klickListe);
@@ -1520,7 +1562,8 @@ function finde(id) {
 }
 function formularOffen() {
   return $('overlay').style.display === 'block' || $('zugang').style.display === 'block' || $('lieferung').style.display === 'block' ||
-    $('pinBlatt').style.display === 'block' || $('sperrBlatt').style.display === 'block' || $('ubBlatt').style.display === 'block';
+    $('pinBlatt').style.display === 'block' || $('sperrBlatt').style.display === 'block' || $('ubBlatt').style.display === 'block' ||
+    $('ferienBlatt').style.display === 'block' || $('fdBlatt').style.display === 'block';
 }
 
 // Zeigt nur die Felder, die zur gewählten Art gehören
@@ -2392,6 +2435,93 @@ function ueberblickSpeichern() {
   }).catch(function (e) { fehler(e); ladeAkte(); });
 }
 
+/* ---- Fahrdienst Ferien ---- */
+var fdStandardTage = '';
+function fdTageBearbeiten(m) {
+  if (!m || !m.fd) return;
+  $('fdTitel').textContent = 'Tage: ' + m.fd.ferien;
+  $('fd_ferien').value = m.fd.ferienId;
+  $('fd_tage').value = m.fd.tage || '';
+  fdStandardTage = '';
+  $('fdBlatt').style.display = 'block';
+}
+// "Alle Werktage": Vorbelegung wie vom Server berechnet wiederherstellen (leeres Feld speichern setzt nicht zurück)
+function fdTageZuruecksetzen() {
+  var ferienId = $('fd_ferien').value;
+  call('fahrdienstTage', { ferienId: ferienId, tage: '', zuruecksetzen: true }).then(function (s) {
+    setState(s);
+    var m = state.medikamente.filter(function (x) { return x.fd && x.fd.ferienId === ferienId; })[0];
+    if (m) $('fd_tage').value = m.fd.tage || '';
+    meldung('Alle Werktage eingesetzt');
+  }).catch(fehler);
+}
+function fdTageSpeichern() {
+  var ferienId = $('fd_ferien').value, tage = $('fd_tage').value.trim();
+  state.medikamente.forEach(function (x) { if (x.fd && x.fd.ferienId === ferienId) x.fd.tage = tage; });
+  $('fdBlatt').style.display = 'none';
+  render();
+  call('fahrdienstTage', { ferienId: ferienId, tage: tage }).then(function (s) { setState(s); meldung('Gespeichert'); }).catch(function (e) { fehler(e); neuLaden(); });
+}
+function fdAntwortErhalten(m) {
+  if (!m || !m.fd) return;
+  if (!confirm('Antwort zum Fahrdienst für die ' + m.fd.ferien + ' erhalten? Antrag und Nachfrage werden damit erledigt.')) return;
+  state.medikamente.forEach(function (x) { if (x.fd && x.fd.ferienId === m.fd.ferienId) x.aktiv = false; });
+  render();
+  call('fahrdienstAntwort', { ferienId: m.fd.ferienId }).then(function (s) { setState(s); meldung('Erledigt: Antwort erhalten'); }).catch(function (e) { fehler(e); neuLaden(); });
+}
+
+/* Ferientabelle (Einstellungen, nur Admin) */
+var ferienStand = null;
+function ladeFerien() {
+  if (!istAdmin()) return;
+  call('ferien').then(function (s) { ferienStand = s; renderFerien(); }).catch(function (e) {
+    $('ferienListe').innerHTML = '<div class="ezeile"><div class="eu">' + esc(e.message) + '</div></div>';
+  });
+}
+function renderFerien() {
+  var liste = (ferienStand && ferienStand.ferien) || [];
+  if (!liste.length) { $('ferienListe').innerHTML = '<div class="ezeile"><div class="eu">Noch keine Ferien eingetragen.</div></div>'; return; }
+  var html = '', jahr = '';
+  liste.forEach(function (f) {
+    var j = f.von.slice(0, 4);
+    if (j !== jahr) { jahr = j; html += '<div class="ferienjahr">' + j + '</div>'; }
+    html += '<div class="ezeile' + (f.vorbei ? ' vorbei' : '') + '"><div style="min-width:0"><div class="et">' + esc(f.name) + '</div>' +
+      '<div class="eu">' + datumDe(f.von) + ' bis ' + datumDe(f.bis) +
+      (f.vorbei ? ' · vorbei' : ' · Antrag ' + datumDe(f.antrag) + ', Nachfrage ' + datumDe(f.nachfrage)) + '</div></div>' +
+      '<button class="pill klein" data-ferien="' + esc(f.id) + '">Bearbeiten</button></div>';
+  });
+  html += '<div class="ezeile"><div class="eu">' + (+jahr + 1) + ': noch keine Termine. Bitte ergänzen, sobald sie veröffentlicht sind.</div></div>';
+  $('ferienListe').innerHTML = html;
+}
+$('ferienListe').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-ferien]') : null;
+  if (!b) return;
+  ferienBearbeiten((ferienStand.ferien || []).filter(function (f) { return f.id === b.getAttribute('data-ferien'); })[0]);
+});
+function ferienBearbeiten(f) {
+  $('ferienTitel').textContent = f ? 'Ferienblock bearbeiten' : 'Ferienblock hinzufügen';
+  $('fe_id').value = f ? f.id : '';
+  $('fe_name').value = f ? f.name : '';
+  $('fe_von').value = f ? f.von : '';
+  $('fe_bis').value = f ? f.bis : '';
+  $('fe_loeschen').style.display = f ? '' : 'none';
+  $('fe_info').textContent = f ? 'Quelle: ' + (f.quelle || 'eigene Eingabe') + '. Offene Fahrdienst-Aufgaben werden an geänderte Termine angepasst.' : 'Die Aufgaben werden automatisch angelegt, sobald der Antrag in den nächsten 90 Tagen fällig ist.';
+  $('ferienBlatt').style.display = 'block';
+}
+function ferienSpeichern() {
+  var d = { id: $('fe_id').value, name: $('fe_name').value.trim(), von: $('fe_von').value, bis: $('fe_bis').value };
+  if (!d.name || !d.von || !d.bis) { meldung('Bitte Name, ersten und letzten Ferientag angeben.', true); return; }
+  if (d.bis < d.von) { meldung('Der letzte Ferientag liegt vor dem ersten.', true); return; }
+  $('ferienBlatt').style.display = 'none';
+  call('ferienSpeichern', d).then(function (s) { ferienStand = s; renderFerien(); meldung('Gespeichert'); neuLaden(); }).catch(fehler);
+}
+function ferienLoeschen() {
+  var id = $('fe_id').value;
+  if (!id || !confirm('Diesen Ferienblock löschen? Offene Fahrdienst-Aufgaben dazu werden entfernt.')) return;
+  $('ferienBlatt').style.display = 'none';
+  call('ferienLoeschen', { id: id }).then(function (s) { ferienStand = s; renderFerien(); meldung('Gelöscht'); neuLaden(); }).catch(fehler);
+}
+
 /* ---- Teilen: Datei über das Teilen-Menü (WhatsApp usw.) oder herunterladen ---- */
 function base64ZuDatei(b64, name, mime) {
   var bin = atob(b64), arr = new Uint8Array(bin.length);
@@ -2659,7 +2789,7 @@ function zeigeSeite(name, ausVerlauf) {
   $('ansichtStart').style.display = einst ? 'none' : '';
   $('ansichtEinst').style.display = einst ? '' : 'none';
   if (einst && !ausVerlauf) { try { history.pushState({ seite: 'einst' }, ''); } catch (e) {} }
-  if (einst) { ladeZugaenge(); ladeFreigaben(); }
+  if (einst) { ladeZugaenge(); ladeFreigaben(); ladeFerien(); }
   window.scrollTo(0, 0);
 }
 function zurueck() {
