@@ -215,6 +215,10 @@
   .qrbox svg { width: min(260px, 70vw); height: auto; }
   body.blick > *:not(#blickSeite):not(#toast) { display: none !important; }
   #blickSeite { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+  html.gesperrt, html.gesperrt body { overflow: hidden; }
+  body.gesperrt-fix { position: fixed; left: 0; right: 0; width: 100%; }
+  .blatt { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .blatt-hg { overscroll-behavior: contain; touch-action: pan-y; }
   .rollenetikett { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--flaeche); color: var(--grau); margin-left: 6px; vertical-align: 1px; }
   .rollenetikett.admin { background: var(--past); color: var(--past-t); }
   .rollenetikett.gesperrt { background: #fde4ec; color: #a1173f; }
@@ -234,7 +238,7 @@
   <div class="seite">
     <div class="kopfzeile">
       <div><div class="unterzeile" id="heuteText">&nbsp;</div><h1 id="titel">Medikamente</h1></div>
-      <button class="rund" id="einstKnopf" aria-label="Einstellungen" onclick="zeigeSeite('einst')"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7.6 7.6 0 0 1-2 1.1L14.8 21h-4l-.3-2.5a7.6 7.6 0 0 1-2-1.1l-1.9.7-2-3.4 1.6-1.2a7.4 7.4 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7.6 7.6 0 0 1 2-1.1L10.8 3h4l.3 2.5a7.6 7.6 0 0 1 2 1.1l1.9-.7 2 3.4-1.6 1.2a7.4 7.4 0 0 1 0 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+      <button class="rund" id="einstKnopf" aria-label="Einstellungen" onclick="zeigeSeite('einst')"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.38,10.17 L21.84,10.24 L21.84,13.76 L19.38,13.83 L18.51,15.92 L20.20,17.72 L17.72,20.20 L15.92,18.51 L13.83,19.38 L13.76,21.84 L10.24,21.84 L10.17,19.38 L8.08,18.51 L6.28,20.20 L3.80,17.72 L5.49,15.92 L4.62,13.83 L2.16,13.76 L2.16,10.24 L4.62,10.17 L5.49,8.08 L3.80,6.28 L6.28,3.80 L8.08,5.49 L10.17,4.62 L10.24,2.16 L13.76,2.16 L13.83,4.62 L15.92,5.49 L17.72,3.80 L20.20,6.28 L18.51,8.08 Z M15,12 A3,3 0 1 0 9,12 A3,3 0 1 0 15,12 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path></svg></button>
     </div>
     <div class="seg" id="bereichWahl" style="margin:0 0 14px">
       <button type="button" data-bereich="med" aria-pressed="true">Medikamente</button>
@@ -1349,7 +1353,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-05 · Teilen (PDF, QR, Dokumente)';
+var APP_VERSION = '2026-10-06 · PDF-Laden, Scrollen, Zahnrad';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
@@ -2072,6 +2076,29 @@ var QR = (function () {
   return { erzeuge: erzeuge, svg: svg };
 })();
 
+/* ---- Hintergrund nicht mitscrollen, solange ein Blatt offen ist ----
+   Beobachtet alle Blätter: ist eines sichtbar, wird die Seite dahinter festgehalten (iPhone-tauglich über position: fixed). */
+var gesperrtBei = null;
+function pruefeSperre() {
+  var offen = Array.prototype.some.call(document.querySelectorAll('.blatt-hg'), function (b) { return b.style.display === 'block'; });
+  if (offen && gesperrtBei === null) {
+    gesperrtBei = window.scrollY || 0;
+    document.documentElement.classList.add('gesperrt');
+    document.body.classList.add('gesperrt-fix');
+    document.body.style.top = (-gesperrtBei) + 'px';
+  } else if (!offen && gesperrtBei !== null) {
+    var y = gesperrtBei; gesperrtBei = null;
+    document.documentElement.classList.remove('gesperrt');
+    document.body.classList.remove('gesperrt-fix');
+    document.body.style.top = '';
+    window.scrollTo(0, y);
+  }
+}
+try {
+  var sperrBeobachter = new MutationObserver(pruefeSperre);
+  Array.prototype.forEach.call(document.querySelectorAll('.blatt-hg'), function (b) { sperrBeobachter.observe(b, { attributes: true, attributeFilter: ['style'] }); });
+} catch (e) { /* ältere Browser: ohne Sperre */ }
+
 /* ---- Bereiche: Medikamente und Akte ---- */
 var bereich = null;
 function zeigeBereich(b) {
@@ -2263,27 +2290,47 @@ function oeffneDok(id) {
   $('dokBlatt').style.display = 'block';
   $('dokBlatt').querySelector('.blatt').scrollTop = 0;
 }
+var laedtDatei = {};   // id -> Startzeit, solange eine PDF geladen wird
+function mbText(bytes) { return (Math.round(bytes / 100000) / 10).toString().replace('.', ',') + ' MB'; }
 function zeigePdfKnopf(d) {
   if (!d.vorhanden) { $('dokPdf').innerHTML = '<span class="info">Die Datei ist noch nicht importiert.</span>'; return; }
   if (dateiCache[d.id]) { $('dokPdf').innerHTML = '<div class="aktionen" style="flex:1">' + dateiKnoepfe(dateiCache[d.id]) + '</div>'; return; }
-  $('dokPdf').innerHTML = '<button class="pill primaer" style="flex:1;justify-content:center;height:54px;font-size:17px" data-laden="' + esc(d.id) + '">PDF laden</button>';
+  var groesse = d.groesse ? ' (' + mbText(d.groesse) + ')' : '';
+  if (laedtDatei[d.id]) {
+    var sek = Math.round((Date.now() - laedtDatei[d.id]) / 1000);
+    $('dokPdf').innerHTML = '<button class="pill primaer" style="flex:1;justify-content:center;height:54px;font-size:17px" disabled>Wird geladen …' + (sek >= 3 ? ' ' + sek + ' s' : '') + '</button>' +
+      (sek >= 45 ? '<button class="pill" style="height:54px" data-laden="' + esc(d.id) + '" data-neu="1">Erneut</button>' : '');
+    return;
+  }
+  $('dokPdf').innerHTML = '<button class="pill primaer" style="flex:1;justify-content:center;height:54px;font-size:17px" data-laden="' + esc(d.id) + '">PDF laden' + groesse + '</button>';
+}
+// Während des Ladens die Anzeige jede Sekunde auffrischen (zeigt die Wartezeit, nach 45 s "Erneut")
+setInterval(function () {
+  if (aktuellesDok && laedtDatei[aktuellesDok.id] && $('dokBlatt').style.display === 'block') zeigePdfKnopf(aktuellesDok);
+}, 1000);
+function ladeDatei(id) {
+  var start = Date.now();
+  laedtDatei[id] = start;
+  if (aktuellesDok && aktuellesDok.id === id) zeigePdfKnopf(aktuellesDok);
+  rawCall('akteDatei', { id: id }).then(function (f) {
+    if (laedtDatei[id] !== start) return;   // inzwischen neu gestartet
+    dateiCache[id] = base64ZuDatei(f.daten, f.name, f.mime);
+    delete laedtDatei[id];
+  }).catch(function (err) {
+    if (laedtDatei[id] !== start) return;
+    delete laedtDatei[id];
+    fehler(err);
+  }).then(function () {
+    // immer das gerade geöffnete Dokument neu zeichnen, egal ob zwischendurch geschlossen oder gewechselt wurde
+    if (aktuellesDok && aktuellesDok.id === id) zeigePdfKnopf(aktuellesDok);
+  });
 }
 // Zweistufig (laden, dann öffnen oder teilen), damit das Öffnen direkt aus dem Antippen kommt und nicht blockiert wird
 $('dokPdf').addEventListener('click', function (e) {
   var t = e.target.closest ? e.target.closest('[data-teile]') : null;
-  if (t) {
-    if (aktuellesDok && dateiCache[aktuellesDok.id]) teileDatei(dateiCache[aktuellesDok.id], aktuellesDok.titel);
-    return;
-  }
+  if (t) { if (aktuellesDok && dateiCache[aktuellesDok.id]) teileDatei(dateiCache[aktuellesDok.id], aktuellesDok.titel); return; }
   var b = e.target.closest ? e.target.closest('[data-laden]') : null;
-  if (!b) return;
-  var id = b.getAttribute('data-laden');
-  b.disabled = true; b.textContent = 'Wird geladen …';
-  rawCall('akteDatei', { id: id }).then(function (f) {
-    dateiCache[id] = base64ZuDatei(f.daten, f.name, f.mime);
-    var d = (akteStand.dokumente || []).filter(function (x) { return x.id === id; })[0];
-    if (d) zeigePdfKnopf(d);
-  }).catch(function (err) { b.disabled = false; b.textContent = 'PDF laden'; fehler(err); });
+  if (b) ladeDatei(b.getAttribute('data-laden'));
 });
 function schliesseDok() { $('dokBlatt').style.display = 'none'; }
 $('dokBlatt').addEventListener('click', function (e) {
