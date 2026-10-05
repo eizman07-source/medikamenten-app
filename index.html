@@ -222,6 +222,9 @@
   body.gesperrt-fix { position: fixed; left: 0; right: 0; width: 100%; }
   .blatt { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .blatt-hg { overscroll-behavior: contain; touch-action: pan-y; }
+  body.nutzer #dokNeuKnopf { display: none !important; }
+  select.feld { appearance: auto; -webkit-appearance: menulist; }
+  input[type=file].feld { font-size: 14px; }
   .rollenetikett { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--flaeche); color: var(--grau); margin-left: 6px; vertical-align: 1px; }
   .rollenetikett.admin { background: var(--past); color: var(--past-t); }
   .rollenetikett.gesperrt { background: #fde4ec; color: #a1173f; }
@@ -259,7 +262,7 @@
       <div class="abschnitt" style="margin-top:4px;align-items:center"><h2>Auf einen Blick</h2><button class="pill klein primaer" style="margin-left:auto" onclick="oeffneTeilen()">Teilen</button></div>
       <div class="gruppe" id="ubListe"><div class="ezeile"><div class="eu">Wird geladen …</div></div></div>
       <p class="info" style="margin:8px 4px 0">„Noch zu bestätigen“ heißt: aus älteren Unterlagen übernommen, aber nicht aktuell bestätigt. „Nicht dokumentiert“ heißt nicht „nicht vorhanden“.</p>
-      <div class="abschnitt"><h2>Dokumente</h2><span class="anz" id="anzDok"></span></div>
+      <div class="abschnitt" style="align-items:center"><h2>Dokumente</h2><span class="anz" id="anzDok"></span><button class="pill klein primaer" id="dokNeuKnopf" style="margin-left:auto" onclick="oeffneUpload()">Hinzufügen</button></div>
       <input type="search" class="feld" id="dokSuche" placeholder="Suchen: Titel, Absender, Inhalt, D-Nummer" aria-label="Dokumente durchsuchen">
       <div id="dokPfad" style="margin:12px 0 8px"></div>
       <div class="gruppe" id="dokListe"></div>
@@ -421,6 +424,29 @@
   <div class="blattkopf"><h2 id="dokTitel" style="font-size:22px">Dokument</h2><button class="rund klein" aria-label="Schließen" onclick="schliesseDok()"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
   <div id="dokInhalt"></div>
   <div class="blattfuss"><div id="dokPdf" style="flex:1;display:flex"></div></div>
+</div></div>
+
+<div id="uploadBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="uploadTitel">
+  <div class="griffbalken"></div>
+  <div class="blattkopf"><h2 id="uploadTitel" style="font-size:22px">Dokument hinzufügen</h2><button class="rund klein" aria-label="Schließen" onclick="schliesseUpload()"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button></div>
+  <p class="info" style="margin-top:8px">Die PDF wird im privaten Drive-Ordner der Kategorie abgelegt und geordnet benannt. Nur Admins sehen diese Funktion.</p>
+  <label for="up_datei">PDF-Datei (bis 20 MB)</label>
+  <input type="file" id="up_datei" accept="application/pdf,.pdf" class="feld" style="height:auto;padding:10px 14px">
+  <div class="eu" id="up_dateiInfo" style="margin-top:6px">Noch keine Datei gewählt</div>
+  <label for="up_kat">Kategorie</label>
+  <select id="up_kat" class="feld"></select>
+  <label>Datum des Dokuments</label>
+  <div class="seg" id="up_datumArt" style="margin-top:6px">
+    <button type="button" data-art="tag" aria-pressed="true">Genau</button>
+    <button type="button" data-art="monat" aria-pressed="false">Nur Monat</button>
+    <button type="button" data-art="unbekannt" aria-pressed="false">Unbekannt</button>
+  </div>
+  <input type="date" id="up_datum" class="feld">
+  <input type="month" id="up_monat" class="feld" style="display:none">
+  <label for="up_absender">Absender (z. B. KID Dresden, UKD-SPZ)</label><input type="text" id="up_absender" class="feld" autocomplete="off">
+  <label for="up_titel">Titel</label><input type="text" id="up_titel" class="feld" autocomplete="off" placeholder="z. B. Arztbrief Neuropädiatrie Oktober 2026">
+  <p class="info" id="up_fehler" style="color:#a1173f;margin:10px 0 0;min-height:18px"></p>
+  <div class="blattfuss"><button class="pill primaer" id="up_los" onclick="uploadAbschicken()">Hochladen</button></div>
 </div></div>
 
 <div id="ubBlatt" class="blatt-hg"><div class="blatt" role="dialog" aria-modal="true" aria-labelledby="ubTitel">
@@ -1409,7 +1435,7 @@ function renderEinstellungen() {
   $('kalPunkt').style.background = laedt ? '#c9c3ce' : (k.verbunden ? '#1d6b3f' : '#a1173f');
 }
 // Wird bei jeder Auslieferung hochgezählt. So ist in den Einstellungen sofort sichtbar, welche Datei wirklich geladen wurde.
-var APP_VERSION = '2026-10-07 · Nachfrage 14 Tage nach Antrag';
+var APP_VERSION = '2026-10-07 · Dokumente hochladen';
 function renderRolle() {
   document.body.classList.toggle('nutzer', !istAdmin());
   if (bereich === null && state.ich) zeigeBereich(state.ich.rolle === 'admin' ? 'med' : 'akte');
@@ -1579,7 +1605,7 @@ function finde(id) {
 function formularOffen() {
   return $('overlay').style.display === 'block' || $('zugang').style.display === 'block' || $('lieferung').style.display === 'block' ||
     $('pinBlatt').style.display === 'block' || $('sperrBlatt').style.display === 'block' || $('ubBlatt').style.display === 'block' ||
-    $('ferienBlatt').style.display === 'block' || $('fdBlatt').style.display === 'block';
+    $('ferienBlatt').style.display === 'block' || $('fdBlatt').style.display === 'block' || $('uploadBlatt').style.display === 'block';
 }
 
 // Zeigt nur die Felder, die zur gewählten Art gehören
@@ -2344,13 +2370,14 @@ function oeffneDok(id) {
     zeile('Bezug', bez) + '</table>' +
     (d.zusammenfassung ? '<div class="dokabschnitt">Inhalt (Arbeitshilfe)</div><div class="doktext">' + esc(d.zusammenfassung) + '</div>' : '') +
     ((d.hinweise || []).length ? '<div class="dokabschnitt">Prüfhinweise</div><div class="doktext">' + d.hinweise.map(esc).join('<br>') + '</div>' : '') +
-    '<p class="info" style="margin-top:14px">Die Inhaltsangabe ist eine Arbeitshilfe. Maßgeblich ist das Original-PDF.</p>';
+    '<p class="info" style="margin-top:14px">Die Inhaltsangabe ist eine Arbeitshilfe. Maßgeblich ist das Original-PDF.</p>' +
+    (d.app && istAdmin() ? '<button class="pill klein gefahr" data-dokloeschen="' + esc(d.id) + '" style="margin-top:6px">Dokument löschen</button>' : '');
   zeigePdfKnopf(d);
   $('dokBlatt').style.display = 'block';
   $('dokBlatt').querySelector('.blatt').scrollTop = 0;
 }
 var laedtDatei = {};   // id -> Startzeit, solange eine PDF geladen wird
-function mbText(bytes) { return (Math.round(bytes / 100000) / 10).toString().replace('.', ',') + ' MB'; }
+function mbText(bytes) { return bytes < 1000000 ? Math.max(1, Math.round(bytes / 1000)) + ' KB' : (Math.round(bytes / 100000) / 10).toString().replace('.', ',') + ' MB'; }
 function zeigePdfKnopf(d) {
   if (!d.vorhanden) { $('dokPdf').innerHTML = '<span class="info">Die Datei ist noch nicht importiert.</span>'; return; }
   if (dateiCache[d.id]) { $('dokPdf').innerHTML = '<div class="aktionen" style="flex:1">' + dateiKnoepfe(dateiCache[d.id]) + '</div>'; return; }
@@ -2392,8 +2419,105 @@ $('dokPdf').addEventListener('click', function (e) {
   if (b) ladeDatei(b.getAttribute('data-laden'));
 });
 function schliesseDok() { $('dokBlatt').style.display = 'none'; }
+
+/* ---- Dokument hinzufügen (nur Admin) ---- */
+var upArt = 'tag', upLaeuft = false;
+function oeffneUpload() {
+  if (!istAdmin() || !akteStand) return;
+  $('up_datei').value = ''; $('up_dateiInfo').textContent = 'Noch keine Datei gewählt';
+  $('up_absender').value = ''; $('up_titel').value = ''; $('up_datum').value = ''; $('up_monat').value = '';
+  $('up_fehler').textContent = '';
+  $('up_kat').innerHTML = (akteStand.kategorien || []).map(function (k) { return '<option value="' + esc(k.id) + '">' + esc(k.name) + '</option>'; }).join('');
+  if (dokOrdner && dokOrdner !== 'archiv') $('up_kat').value = dokOrdner;   // gerade geöffneter Ordner ist vorgewählt
+  setzeUpArt('tag');
+  $('up_los').disabled = false; $('up_los').textContent = 'Hochladen';
+  $('uploadBlatt').style.display = 'block';
+}
+function schliesseUpload() { if (!upLaeuft) $('uploadBlatt').style.display = 'none'; }
+function setzeUpArt(a) {
+  upArt = a;
+  Array.prototype.forEach.call(document.querySelectorAll('#up_datumArt button'), function (x) { x.setAttribute('aria-pressed', x.getAttribute('data-art') === a ? 'true' : 'false'); });
+  $('up_datum').style.display = a === 'tag' ? '' : 'none';
+  $('up_monat').style.display = a === 'monat' ? '' : 'none';
+}
+document.querySelector('#up_datumArt').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button[data-art]') : null;
+  if (b) setzeUpArt(b.getAttribute('data-art'));
+});
+// Titel und Datum aus dem Dateinamen vorschlagen, wenn noch leer
+$('up_datei').addEventListener('change', function () {
+  var f = $('up_datei').files && $('up_datei').files[0];
+  if (!f) { $('up_dateiInfo').textContent = 'Noch keine Datei gewählt'; return; }
+  $('up_dateiInfo').textContent = f.name + ' · ' + mbText(f.size);
+  $('up_fehler').textContent = '';
+  var basis = f.name.replace(/\.pdf$/i, '');
+  var m = /^(\d{4})[-_. ](\d{2})[-_. ](\d{2})/.exec(basis);
+  if (m && !$('up_datum').value) { $('up_datum').value = m[1] + '-' + m[2] + '-' + m[3]; }
+  if (!$('up_titel').value.trim()) $('up_titel').value = basis.replace(/^(\d{4})[-_. ](\d{2})[-_. ](\d{2})[-_. ]*/, '').replace(/[_]+/g, ' ').trim();
+});
+function dateiAlsBase64(f) {
+  return new Promise(function (ok, nein) {
+    var r = new FileReader();
+    r.onload = function () { var t = String(r.result); ok(t.slice(t.indexOf(',') + 1)); };
+    r.onerror = function () { nein(new Error('Die Datei konnte nicht gelesen werden.')); };
+    r.readAsDataURL(f);
+  });
+}
+function uploadAbschicken() {
+  if (upLaeuft) return;
+  var f = $('up_datei').files && $('up_datei').files[0];
+  var fehlerText = '';
+  var datum = upArt === 'tag' ? $('up_datum').value : upArt === 'monat' ? $('up_monat').value : '';
+  if (!f) fehlerText = 'Bitte eine PDF-Datei wählen.';
+  else if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') fehlerText = 'Das ist keine PDF-Datei.';
+  else if (f.size > 20 * 1048576) fehlerText = 'Die Datei ist größer als 20 MB (' + mbText(f.size) + ').';
+  else if (!$('up_titel').value.trim()) fehlerText = 'Bitte einen Titel eingeben.';
+  else if (upArt !== 'unbekannt' && !datum) fehlerText = upArt === 'tag' ? 'Bitte das Datum angeben (oder „Unbekannt“ wählen).' : 'Bitte den Monat angeben (oder „Unbekannt“ wählen).';
+  if (fehlerText) { $('up_fehler').textContent = fehlerText; return; }
+  upLaeuft = true;
+  $('up_fehler').textContent = '';
+  $('up_los').disabled = true; $('up_los').textContent = 'Wird hochgeladen … (' + mbText(f.size) + ')';
+  var kat = $('up_kat').value;
+  dateiAlsBase64(f).then(function (b64) {
+    // bewusst rawCall ohne automatische Wiederholung; der Server erkennt Dubletten über die Prüfsumme
+    return rawCall('dokumentHochladen', { datei: b64, dateiname: f.name, kategorieId: kat, datumArt: upArt, datum: datum,
+      absender: $('up_absender').value.trim(), titel: $('up_titel').value.trim() });
+  }).then(function (s) {
+    upLaeuft = false;
+    $('uploadBlatt').style.display = 'none';
+    var neu = s.neu; delete s.neu;
+    akteStand = s; akteVorlaeufig = false;
+    try { localStorage.setItem('med_akte', JSON.stringify(s)); } catch (e) {}
+    dokSuche = ''; $('dokSuche').value = '';
+    dokOrdner = kat; renderAkte();
+    meldung('Hochgeladen als ' + neu.id);
+    try { $('dokPfad').scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {}
+  }).catch(function (e) {
+    upLaeuft = false;
+    $('up_los').disabled = false; $('up_los').textContent = 'Hochladen';
+    if (e && ZUGANGS_CODES.indexOf(e.code) >= 0) { $('uploadBlatt').style.display = 'none'; zugangsProblem(e); return; }
+    var unklar = e && e.unerwartet;
+    $('up_fehler').textContent = unklar
+      ? 'Google hat nicht richtig geantwortet. Bitte unter Dokumente nachsehen, ob die Datei angekommen ist, bevor du es erneut versuchst.'
+      : (e.message || 'Hochladen fehlgeschlagen.');
+    if (unklar) ladeAkte();
+  });
+}
+
+/* Dokument löschen (nur eigene Uploads, nur Admin) */
+function dokumentLoeschen(d) {
+  if (!d || !d.app || !istAdmin()) return;
+  if (!confirm('„' + d.titel + '“ (' + d.id + ') löschen? Die Datei kommt in den Drive-Papierkorb.')) return;
+  rawCall('dokumentLoeschen', { id: d.id }).then(function (s) {
+    akteStand = s;
+    try { localStorage.setItem('med_akte', JSON.stringify(s)); } catch (e) {}
+    schliesseDok(); renderAkte(); meldung('Dokument gelöscht');
+  }).catch(fehler);
+}
 $('dokBlatt').addEventListener('click', function (e) {
   if (e.target === $('dokBlatt')) { schliesseDok(); return; }
+  var l = e.target.closest ? e.target.closest('[data-dokloeschen]') : null;
+  if (l) { dokumentLoeschen(aktuellesDok); return; }
   var q = e.target.closest ? e.target.closest('.quelle[data-dok]') : null;
   if (q) oeffneDok(q.getAttribute('data-dok'));
 });
